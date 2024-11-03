@@ -4,12 +4,22 @@ import os
 from datetime import datetime
 import tempfile
 from pathlib import Path
-import time
 
 def verify_product_key(input_key):
     """제품 키 검증"""
     correct_key = "7977"
     return input_key == correct_key
+
+def get_directory_from_file(uploaded_file):
+    """업로드된 파일의 경로를 통해 디렉토리 경로 추출"""
+    if uploaded_file:
+        # 임시 파일로 저장하고 그 경로를 사용
+        temp_dir = tempfile.mkdtemp()
+        temp_path = os.path.join(temp_dir, uploaded_file.name)
+        with open(temp_path, 'wb') as f:
+            f.write(uploaded_file.getbuffer())
+        return os.path.dirname(temp_path)
+    return None
 
 class MyLogger:
     def debug(self, msg):
@@ -17,7 +27,6 @@ class MyLogger:
             progress_text = msg.strip()
             if '%' in progress_text:
                 try:
-                    # Extract percentage from the progress text
                     percent = float(progress_text.split('%')[0].split()[-1])
                     st.session_state['progress'] = percent / 100
                     st.session_state['status_text'] = progress_text
@@ -30,19 +39,25 @@ class MyLogger:
     def error(self, msg):
         st.error(msg)
 
-def download_video(url, output_path, progress_bar, status_text):
+def download_video(url, output_path, progress_bar, status_text, quality_format):
     """YouTube 비디오 다운로드 함수"""
     try:
         ydl_opts = {
-            'format': 'best',
+            'format': quality_format,
             'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
             'progress_hooks': [lambda d: update_progress(d, progress_bar, status_text)],
             'logger': MyLogger(),
         }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            # 먼저 영상 정보 가져오기
+            info = ydl.extract_info(url, download=False)
+            title = info.get('title', 'video')
+            
+            # 다운로드 실행
             ydl.download([url])
-        return True, "다운로드가 완료되었습니다."
+            
+            return True, f"다운로드 완료: {title}"
     except Exception as e:
         return False, f"다운로드 중 오류가 발생했습니다: {str(e)}"
 
@@ -91,16 +106,6 @@ def main():
     if 'product_key_verified' not in st.session_state:
         st.session_state.product_key_verified = False
     
-    # 초기 다운로드 경로 설정
-    if 'download_folders' not in st.session_state:
-        st.session_state.download_folders = [
-            "downloads",
-            "videos",
-            "youtube_downloads",
-            os.path.expanduser("~/Downloads"),
-            tempfile.gettempdir()
-        ]
-    
     # 사이드바에 제품 키 입력 섹션
     with st.sidebar:
         st.subheader("제품 키 인증")
@@ -115,6 +120,22 @@ def main():
                     st.error("잘못된 제품 키입니다. 다시 확인해주세요.")
         else:
             st.success("인증됨 ✓")
+            
+        # 다운로드 품질 선택
+        st.subheader("다운로드 설정")
+        quality_options = {
+            "최고 품질": "bestvideo+bestaudio/best",
+            "1080p": "137+140/best",
+            "720p": "22/best",
+            "480p": "135+140/best",
+            "360p": "18/best",
+            "음성만": "bestaudio/best"
+        }
+        selected_quality = st.selectbox(
+            "품질 선택:",
+            list(quality_options.keys()),
+            index=0
+        )
     
     # 메인 다운로드 섹션
     if st.session_state.product_key_verified:
@@ -123,70 +144,68 @@ def main():
         # URL 입력
         url = st.text_input("YouTube URL을 입력하세요:")
         
-        # 저장 경로 설정
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            # 기존 경로 선택 또는 새 경로 입력
-            use_existing = st.checkbox("기존 폴더 사용", value=True)
-            if use_existing:
-                save_path = st.selectbox(
-                    "저장 폴더 선택:",
-                    st.session_state.download_folders
-                )
-            else:
-                new_path = st.text_input("새 저장 경로 입력:")
-                if new_path and new_path not in st.session_state.download_folders:
-                    if os.path.exists(new_path) or new_path.strip():
-                        st.session_state.download_folders.append(new_path)
-                    save_path = new_path
-                else:
-                    save_path = st.session_state.download_folders[0]
-        
-        # 품질 선택
-        quality_options = {
-            "최고 품질": "bestvideo+bestaudio/best",
-            "1080p": "137+140/best",
-            "720p": "22/best",
-            "480p": "135+140/best",
-            "360p": "18/best"
-        }
-        quality = st.selectbox(
-            "다운로드 품질 선택:",
-            list(quality_options.keys()),
-            index=0
+        # 저장 경로 설정 (3가지 방법 제공)
+        st.subheader("저장 경로 선택")
+        path_method = st.radio(
+            "저장 경로 선택 방법:",
+            ["기본 경로 사용", "경로 직접 입력", "폴더 선택 (파일 업로드)"]
         )
         
-        # 다운로드 버튼 및 진행 상태
-        if st.button("다운로드", type="primary"):
-            if url and save_path:
-                # 저장 경로가 존재하지 않으면 생성
+        if path_method == "기본 경로 사용":
+            save_path = os.path.join(os.getcwd(), "downloads")
+            st.info(f"현재 저장 경로: {save_path}")
+            
+        elif path_method == "경로 직접 입력":
+            save_path = st.text_input("저장할 경로를 입력하세요:", value=os.path.join(os.getcwd(), "downloads"))
+            try:
                 os.makedirs(save_path, exist_ok=True)
+                st.success(f"저장 경로가 설정되었습니다: {save_path}")
+            except Exception as e:
+                st.error(f"경로 생성 중 오류가 발생했습니다: {str(e)}")
                 
-                progress_bar = st.progress(0)
-                status_text = st.empty()
-                
-                with st.spinner('다운로드 준비 중...'):
-                    success, message = download_video(url, save_path, progress_bar, status_text)
-                    if success:
-                        st.success(message)
-                        # 다운로드 기록 저장
-                        if 'download_history' not in st.session_state:
-                            st.session_state.download_history = []
-                        st.session_state.download_history.append({
-                            'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                            'url': url,
-                            'path': save_path
-                        })
-                    else:
-                        st.error(message)
+        else:  # "폴더 선택 (파일 업로드)"
+            st.info("원하는 폴더에서 아무 파일이나 하나 선택하면, 해당 폴더가 저장 경로로 설정됩니다.")
+            uploaded_file = st.file_uploader("폴더 선택을 위한 파일 업로드", type=['txt', 'pdf', 'png', 'jpg'])
+            if uploaded_file:
+                save_path = get_directory_from_file(uploaded_file)
+                st.success(f"선택된 저장 경로: {save_path}")
             else:
-                st.warning("URL과 저장 경로를 모두 입력해주세요.")
+                save_path = None
+                st.warning("파일을 업로드하여 저장 경로를 선택해주세요.")
+        
+        # 다운로드 버튼 및 진행 상태
+        if st.button("다운로드 시작", type="primary", disabled=not (url and save_path)):
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            with st.spinner('다운로드 준비 중...'):
+                success, message = download_video(
+                    url, 
+                    save_path, 
+                    progress_bar, 
+                    status_text,
+                    quality_options[selected_quality]
+                )
+                if success:
+                    st.success(message)
+                    # 다운로드 기록 저장
+                    if 'download_history' not in st.session_state:
+                        st.session_state.download_history = []
+                    st.session_state.download_history.append({
+                        'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'url': url,
+                        'path': save_path
+                    })
+                else:
+                    st.error(message)
         
         # 다운로드 기록 표시
         if 'download_history' in st.session_state and st.session_state.download_history:
-            st.subheader("최근 다운로드")
-            for item in st.session_state.download_history[-5:]:  # 최근 5개만 표시
-                st.text(f"{item['date']} - {item['url']}")
+            st.subheader("최근 다운로드 기록")
+            for item in reversed(st.session_state.download_history[-5:]):  # 최근 5개만 표시
+                with st.expander(f"다운로드 - {item['date']}"):
+                    st.write(f"URL: {item['url']}")
+                    st.write(f"저장 경로: {item['path']}")
     
     # 푸터
     st.markdown("---")
