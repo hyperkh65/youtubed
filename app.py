@@ -234,11 +234,4 @@ def main():
             for item in reversed(st.session_state.download_history[-5:]):  # 최근 5개만 표시
                 with st.expander(f"다운로드 - {item['date']}"):
                     st.write(f"URL: {item['url']}")
-                    st.write(f"저장 경로: {item['path']}")
-    
-    # 푸터
-    st.markdown("---")
-    st.caption("Copyright all reserved by 미라쿨")
-
-if __name__ == "__main__":
-    main()
+                    st.write(f"저장 위치: {item['path']}")
