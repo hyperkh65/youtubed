@@ -2,24 +2,31 @@ import streamlit as st
 import yt_dlp
 import os
 from datetime import datetime
-import tempfile
+import platform
 from pathlib import Path
+
+def get_downloads_path():
+    """운영체제에 따른 바탕화면/downloads 경로 반환"""
+    system = platform.system()
+    home = Path.home()
+    
+    if system == "Windows":
+        downloads_path = home / "Desktop" / "downloads"
+    elif system == "Darwin":  # macOS
+        downloads_path = home / "Desktop" / "downloads"
+    else:  # Linux 등 기타 운영체제
+        downloads_path = home / "Desktop" / "downloads"
+    
+    # downloads 폴더가 없으면 생성
+    if not downloads_path.exists():
+        downloads_path.mkdir(parents=True)
+    
+    return str(downloads_path)
 
 def verify_product_key(input_key):
     """제품 키 검증"""
     correct_key = "7977"
     return input_key == correct_key
-
-def get_directory_from_file(uploaded_file):
-    """업로드된 파일의 경로를 통해 디렉토리 경로 추출"""
-    if uploaded_file:
-        # 임시 파일로 저장하고 그 경로를 사용
-        temp_dir = tempfile.mkdtemp()
-        temp_path = os.path.join(temp_dir, uploaded_file.name)
-        with open(temp_path, 'wb') as f:
-            f.write(uploaded_file.getbuffer())
-        return os.path.dirname(temp_path)
-    return None
 
 class MyLogger:
     def debug(self, msg):
@@ -42,17 +49,23 @@ class MyLogger:
 def download_video(url, output_path, progress_bar, status_text, quality_format):
     """YouTube 비디오 다운로드 함수"""
     try:
+        status_text.text("영상 정보를 가져오는 중...")
+        
         ydl_opts = {
             'format': quality_format,
             'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
             'progress_hooks': [lambda d: update_progress(d, progress_bar, status_text)],
             'logger': MyLogger(),
+            'verbose': True,
         }
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # 먼저 영상 정보 가져오기
+            # 영상 정보 가져오기
             info = ydl.extract_info(url, download=False)
             title = info.get('title', 'video')
+            
+            # 다운로드 시작 전 상태 표시
+            status_text.text(f"'{title}' 다운로드 시작...")
             
             # 다운로드 실행
             ydl.download([url])
@@ -93,7 +106,7 @@ def main():
     
     # 타이틀 및 로고
     st.title("Quickgrab Youtube")
-    st.caption("Version 0.1")
+    st.caption("Version 0.2")
     
     # 경고문
     st.warning("""
@@ -144,37 +157,12 @@ def main():
         # URL 입력
         url = st.text_input("YouTube URL을 입력하세요:")
         
-        # 저장 경로 설정 (3가지 방법 제공)
-        st.subheader("저장 경로 선택")
-        path_method = st.radio(
-            "저장 경로 선택 방법:",
-            ["기본 경로 사용", "경로 직접 입력", "폴더 선택 (파일 업로드)"]
-        )
-        
-        if path_method == "기본 경로 사용":
-            save_path = os.path.join(os.getcwd(), "downloads")
-            st.info(f"현재 저장 경로: {save_path}")
-            
-        elif path_method == "경로 직접 입력":
-            save_path = st.text_input("저장할 경로를 입력하세요:", value=os.path.join(os.getcwd(), "downloads"))
-            try:
-                os.makedirs(save_path, exist_ok=True)
-                st.success(f"저장 경로가 설정되었습니다: {save_path}")
-            except Exception as e:
-                st.error(f"경로 생성 중 오류가 발생했습니다: {str(e)}")
-                
-        else:  # "폴더 선택 (파일 업로드)"
-            st.info("원하는 폴더에서 아무 파일이나 하나 선택하면, 해당 폴더가 저장 경로로 설정됩니다.")
-            uploaded_file = st.file_uploader("폴더 선택을 위한 파일 업로드", type=['txt', 'pdf', 'png', 'jpg'])
-            if uploaded_file:
-                save_path = get_directory_from_file(uploaded_file)
-                st.success(f"선택된 저장 경로: {save_path}")
-            else:
-                save_path = None
-                st.warning("파일을 업로드하여 저장 경로를 선택해주세요.")
+        # 저장 경로 표시 (바탕화면/downloads 고정)
+        save_path = get_downloads_path()
+        st.info(f"다운로드 위치: {save_path}")
         
         # 다운로드 버튼 및 진행 상태
-        if st.button("다운로드 시작", type="primary", disabled=not (url and save_path)):
+        if st.button("다운로드 시작", type="primary", disabled=not url):
             progress_bar = st.progress(0)
             status_text = st.empty()
             
