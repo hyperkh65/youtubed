@@ -22,8 +22,9 @@ class MyLogger:
             progress_text = msg.strip()
             if '%' in progress_text:
                 try:
+                    # 진척률(퍼센트)을 추출하여 반영
                     percent = float(progress_text.split('%')[0].split()[-1])
-                    st.session_state['progress'] = percent / 100
+                    st.session_state['progress'] = percent / 100  # 0~1 사이 값으로 변환
                     st.session_state['status_text'] = progress_text
                 except:
                     pass
@@ -34,13 +35,14 @@ class MyLogger:
     def error(self, msg):
         st.error(msg)
 
-def download_video(url, output_path):
+def download_video(url, output_path, progress_bar, status_text):
     """단순히 URL을 받아 YouTube 비디오 다운로드"""
     try:
         ydl_opts = {
             'format': 'best',
             'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
             'logger': MyLogger(),
+            'progress_hooks': [lambda d: update_progress(d, progress_bar, status_text)],  # 진척률 업데이트
             'verbose': True,
         }
         
@@ -51,6 +53,27 @@ def download_video(url, output_path):
             return True, f"다운로드 완료: {title}", file_path
     except Exception as e:
         return False, f"다운로드 중 오류가 발생했습니다: {str(e)}", None
+
+def update_progress(d, progress_bar, status_text):
+    """다운로드 진행 상태 업데이트"""
+    if d['status'] == 'downloading':
+        total_bytes = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
+        downloaded_bytes = d.get('downloaded_bytes', 0)
+        
+        if total_bytes:
+            progress = downloaded_bytes / total_bytes
+            progress_bar.progress(progress)
+            
+            # 다운로드 속도와 ETA 계산
+            speed = d.get('speed', 0)
+            if speed:
+                speed_mb = speed / 1024 / 1024  # MB/s로 변환
+                eta = d.get('eta', 0)
+                status = f'다운로드 중... {progress:.1%} ({speed_mb:.1f} MB/s, {eta}초 남음)'
+                status_text.text(status)
+    elif d['status'] == 'finished':
+        progress_bar.progress(1.0)
+        status_text.text('다운로드 완료! 파일 처리 중...')
 
 def main():
     st.set_page_config(page_title="YouTube 단순 다운로드", layout="wide")
@@ -92,7 +115,7 @@ def main():
             status_text = st.empty()
             
             with st.spinner('다운로드 준비 중...'):
-                success, message, file_path = download_video(url, save_path)
+                success, message, file_path = download_video(url, save_path, progress_bar, status_text)
                 
                 if success:
                     st.success(message)
