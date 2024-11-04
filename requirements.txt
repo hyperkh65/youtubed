@@ -1,3 +1,5 @@
 streamlit 
 pytube 
-pandas
+pandas 
+requests 
+beautifulsoup4
