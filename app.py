@@ -4,30 +4,30 @@ import os
 import pandas as pd
 from datetime import datetime
 import requests
-from bs4 import BeautifulSoup
 import re
+from bs4 import BeautifulSoup
 
-def get_channel_id(username):
-    """채널 username으로부터 채널 ID를 추출합니다."""
-    url = f"https://www.youtube.com/@{username}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        soup = BeautifulSoup(response.text, 'html.parser')
-        # meta 태그에서 채널 ID 찾기
-        for link in soup.find_all("link"):
-            href = link.get("href", "")
-            if "channel/" in href:
-                return href.split("channel/")[-1]
-    return None
-
-def get_video_info(video):
+def get_channel_videos(channel_url):
+    """채널의 모든 비디오 URL을 가져옵니다."""
     try:
+        html = requests.get(channel_url + "/videos").text
+        video_ids = re.findall(r"watch\?v=(\S{11})", html)
+        return [f"https://www.youtube.com/watch?v={vid}" for vid in dict.fromkeys(video_ids)]
+    except Exception as e:
+        st.error(f"비디오 URL 가져오기 실패: {str(e)}")
+        return []
+
+def get_video_info(url):
+    """비디오 URL로부터 정보를 가져옵니다."""
+    try:
+        yt = YouTube(url)
         return {
-            'title': video.title,
-            'url': video.watch_url,
-            'views': video.views,
-            'publish_date': video.publish_date.strftime('%Y-%m-%d') if video.publish_date else 'Unknown',
-            'length': f'{video.length//60}:{video.length%60:02d}'
+            'title': yt.title,
+            'url': url,
+            'views': yt.views,
+            'author': yt.author,
+            'publish_date': yt.publish_date.strftime('%Y-%m-%d') if yt.publish_date else 'Unknown',
+            'length': f'{yt.length//60}:{yt.length%60:02d}'
         }
     except Exception as e:
         st.warning(f"비디오 정보 가져오기 실패: {str(e)}")
@@ -42,28 +42,17 @@ channel_input = st.text_input('YouTube 채널 URL 또는 username을 입력하�
 if channel_input:
     try:
         with st.spinner('채널 정보를 가져오는 중...'):
-            # URL에서 username 추출
-            if '@' in channel_input:
-                username = channel_input.split('@')[-1]
-            else:
-                username = channel_input
+            # URL 형식 확인 및 변환
+            if not channel_input.startswith('http'):
+                if channel_input.startswith('@'):
+                    channel_input = f"https://www.youtube.com/{channel_input}"
+                else:
+                    channel_input = f"https://www.youtube.com/@{channel_input}"
+
+            # 비디오 URL 목록 가져오기
+            video_urls = get_channel_videos(channel_input)
             
-            # username에서 채널 ID 가져오기
-            channel_id = get_channel_id(username)
-            if not channel_id:
-                st.error('채널 ID를 찾을 수 없습니다.')
-                st.stop()
-            
-            # 채널 URL 생성
-            channel_url = f'https://www.youtube.com/channel/{channel_id}'
-            channel = Channel(channel_url)
-            
-            # 첫 번째 비디오의 채널명으로 대체
-            try:
-                first_video = next(channel.videos)
-                channel_name = first_video.author
-                st.success(f'채널명: {channel_name}')
-            except StopIteration:
+            if not video_urls:
                 st.error('채널에서 비디오를 찾을 수 없습니다.')
                 st.stop()
             
@@ -77,30 +66,49 @@ if channel_input:
             progress_bar = st.progress(0)
             status_text = st.empty()
             
-            # channel.videos 반복자 재생성
-            channel = Channel(channel_url)
-            video_list = list(channel.videos)
-            total_videos = len(video_list)
+            total_videos = len(video_urls)
             
-            for i, video in enumerate(video_list):
-                video_info = get_video_info(video)
+            for i, url in enumerate(video_urls):
+                video_info = get_video_info(url)
                 if video_info:
                     videos.append(video_info)
+                    if not videos[-1].get('author', ''):
+                        videos[-1]['author'] = video_info.get('author', 'Unknown')
                 progress = (i + 1) / total_videos
                 progress_bar.progress(progress)
                 status_text.text(f'비디오 정보 수집 중... {i+1}/{total_videos}개 완료')
             
             if videos:
-                # 비디오 목록 표시
+                # 채널명 표시
+                st.success(f'채널명: {videos[0]["author"]}')
+                
+                # 비디오 목록을 DataFrame으로 변환하고 표시
                 df = pd.DataFrame(videos)
                 st.dataframe(df)
+                
+                # 다운로드 옵션
+                st.subheader('다운로드 옵션')
+                resolution = st.selectbox('해상도 선택:', 
+                                       ['최고 화질', '720p', '480p', '360p'])
                 
                 # 다운로드 버튼
                 if st.button('선택한 비디오 다운로드'):
                     for url in df['url']:
                         try:
                             yt = YouTube(url)
-                            video_stream = yt.streams.get_highest_resolution()
+                            # 선택된 해상도에 따라 스트림 선택
+                            if resolution == '최고 화질':
+                                video_stream = yt.streams.get_highest_resolution()
+                            else:
+                                video_stream = yt.streams.filter(
+                                    progressive=True, 
+                                    resolution=resolution
+                                ).first()
+                                
+                            if not video_stream:
+                                st.warning(f'{yt.title}: 선택한 해상도를 찾을 수 없습니다. 대신 가능한 최고 화질로 다운로드합니다.')
+                                video_stream = yt.streams.get_highest_resolution()
+                            
                             st.write(f'다운로드 중: {yt.title}')
                             video_stream.download(output_path=download_path)
                             st.success(f'다운로드 완료: {yt.title}')
