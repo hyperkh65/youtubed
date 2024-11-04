@@ -3,6 +3,22 @@ from pytube import Channel, YouTube
 import os
 import pandas as pd
 from datetime import datetime
+import requests
+from bs4 import BeautifulSoup
+import re
+
+def get_channel_id(username):
+    """채널 username으로부터 채널 ID를 추출합니다."""
+    url = f"https://www.youtube.com/@{username}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.text, 'html.parser')
+        # meta 태그에서 채널 ID 찾기
+        for link in soup.find_all("link"):
+            href = link.get("href", "")
+            if "channel/" in href:
+                return href.split("channel/")[-1]
+    return None
 
 def get_video_info(video):
     try:
@@ -19,19 +35,37 @@ def get_video_info(video):
 
 st.title('YouTube Channel Video Downloader')
 
-# 채널 URL 입력
-channel_url = st.text_input('YouTube 채널 URL을 입력하세요:')
+# 채널 URL 또는 username 입력
+channel_input = st.text_input('YouTube 채널 URL 또는 username을 입력하세요:', 
+                            help='예: https://www.youtube.com/@Seul_Ku 또는 Seul_Ku')
 
-if channel_url:
+if channel_input:
     try:
         with st.spinner('채널 정보를 가져오는 중...'):
-            # 채널 정보 가져오기
+            # URL에서 username 추출
+            if '@' in channel_input:
+                username = channel_input.split('@')[-1]
+            else:
+                username = channel_input
+            
+            # username에서 채널 ID 가져오기
+            channel_id = get_channel_id(username)
+            if not channel_id:
+                st.error('채널 ID를 찾을 수 없습니다.')
+                st.stop()
+            
+            # 채널 URL 생성
+            channel_url = f'https://www.youtube.com/channel/{channel_id}'
             channel = Channel(channel_url)
             
             # 첫 번째 비디오의 채널명으로 대체
-            first_video = next(channel.videos)
-            channel_name = first_video.author
-            st.success(f'채널명: {channel_name}')
+            try:
+                first_video = next(channel.videos)
+                channel_name = first_video.author
+                st.success(f'채널명: {channel_name}')
+            except StopIteration:
+                st.error('채널에서 비디오를 찾을 수 없습니다.')
+                st.stop()
             
             # 다운로드 경로 설정
             download_path = st.text_input('다운로드 경로를 입력하세요:', value='downloads')
@@ -43,7 +77,7 @@ if channel_url:
             progress_bar = st.progress(0)
             status_text = st.empty()
             
-            # channel.videos 반복자 재생성 (첫 번째 비디오를 이미 소비했으므로)
+            # channel.videos 반복자 재생성
             channel = Channel(channel_url)
             video_list = list(channel.videos)
             total_videos = len(video_list)
@@ -77,4 +111,4 @@ if channel_url:
                     
     except Exception as e:
         st.error(f'에러가 발생했습니다: {str(e)}')
-        st.info('올바른 채널 URL을 입력했는지 확인해주세요. URL 형식: https://www.youtube.com/c/채널명 또는 https://www.youtube.com/@채널명')
+        st.info('올바른 채널 URL이나 username을 입력했는지 확인해주세요.')
