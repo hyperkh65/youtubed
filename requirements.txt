@@ -7,3 +7,6 @@ plotly
 numpy
 scipy
 openpyxl
+fastapi
+uvicorn
+python-multipart
