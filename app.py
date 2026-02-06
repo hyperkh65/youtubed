@@ -71,7 +71,14 @@ st.set_page_config(page_title='YouTube Channel Manager', layout='wide')
 st.title('🎬 YouTube Channel Manager - Video Downloader & Keyword Analysis')
 
 # Create tabs
-tab1, tab2, tab3 = st.tabs(['📥 Video Downloader', '🔍 Keyword Analysis', '📊 Trend Analysis'])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    '📥 Video Downloader',
+    '🔍 Keyword Analysis',
+    '📊 Trend Analysis',
+    '🎯 Advanced Features',
+    '📈 Performance & History',
+    '⚙️ Settings'
+])
 
 # Initialize keyword analyzer
 analyzer = KeywordAnalyzer()
@@ -389,3 +396,451 @@ with tab3:
         if st.button('트렌드 데이터를 CSV로 내보내기'):
             result_msg = exporter.export_to_csv(trend_df, f'trend_analysis_{keyword}.csv')
             st.info(result_msg)
+
+# Tab 4: Advanced Features
+with tab4:
+    st.header('🎯 고급 분석 기능')
+
+    advanced_mode = st.radio('분석 유형 선택:',
+                            ['숏/롱테일 키워드', '실시간 추천', '경쟁사 분석', '검색 의도 분석'],
+                            horizontal=True)
+
+    if advanced_mode == '숏/롱테일 키워드':
+        st.subheader('📊 숏/롱테일 키워드 분석')
+        st.markdown('**숏 키워드(1-2단어)와 롱테일 키워드(3단어+) 상세 분석**')
+
+        keyword = st.text_input('분석할 키워드:', placeholder='예: 파이썬 프로그래밍 튜토리얼')
+
+        if keyword:
+            with st.spinner('🔄 숏/롱테일 분석 중...'):
+                analysis = analyzer.analyze_short_long_keywords(keyword)
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.write('### 📌 숏테일 키워드 (높은 검색량)')
+                if analysis['short_keywords']:
+                    for kw in analysis['short_keywords']:
+                        st.write(f"""
+                        **{kw['keyword']}**
+                        - 검색량: {kw['volume']:,}
+                        - 난이도: {kw['difficulty']}/100
+                        """)
+
+            with col2:
+                st.write('### 🎯 롱테일 키워드 (낮은 경쟁도)')
+                if analysis['long_keywords']:
+                    for kw in analysis['long_keywords']:
+                        st.write(f"""
+                        **{kw['keyword']}**
+                        - 검색량: {kw['volume']:,}
+                        - 난이도: {kw['difficulty']}/100
+                        - 전환 가능성: {kw['conversion_potential']:.1%}
+                        """)
+
+            # 비교 분석 시각화
+            st.divider()
+            st.subheader('📈 숏/롱테일 비교 분석')
+
+            comparison = analysis['comparison']
+
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric('숏테일 평균 검색량', f"{comparison['short_tail_avg_volume']:.0f}")
+            with col2:
+                st.metric('롱테일 평균 검색량', f"{comparison['long_tail_avg_volume']:.0f}")
+            with col3:
+                st.metric('숏테일 난이도', f"{comparison['short_tail_avg_difficulty']:.0f}")
+            with col4:
+                st.metric('롱테일 난이도', f"{comparison['long_tail_avg_difficulty']:.0f}")
+
+            st.info(f"💡 **추천:** {comparison['recommendation']}")
+
+    elif advanced_mode == '실시간 추천':
+        st.subheader('💡 실시간 키워드 추천')
+        st.markdown('**다양한 알고리즘을 통한 최적의 키워드 추천**')
+
+        col1, col2 = st.columns(2)
+        with col1:
+            keywords_input = st.text_area('기본 키워드들 (한 줄에 하나):',
+                                         placeholder='파이썬\n머신러닝\n데이터과학',
+                                         height=100)
+        with col2:
+            channel_topic = st.text_input('채널 주제 (선택사항):', placeholder='예: 기술/프로그래밍')
+
+        if keywords_input and st.button('실시간 추천 생성'):
+            keywords = [kw.strip() for kw in keywords_input.split('\n') if kw.strip()]
+
+            with st.spinner('🔄 최적의 키워드 추천 중...'):
+                recommendations = analyzer.get_realtime_recommendations(keywords, channel_topic)
+
+            st.success('✅ 추천 키워드가 생성되었습니다!')
+
+            # 추천 결과 표시
+            rec_df = pd.DataFrame([
+                {
+                    'Keyword': r['keyword'],
+                    'Score': f"{r['score']:.1f}",
+                    'Type': r.get('type', 'N/A'),
+                    'Volume': f"{r.get('volume', 0):,}",
+                    'Difficulty': r.get('difficulty', 0),
+                    'Trend': r.get('trend', 'N/A')
+                }
+                for r in recommendations
+            ])
+
+            st.dataframe(rec_df, use_container_width=True)
+
+            # 점수별 시각화
+            fig = px.bar(
+                pd.DataFrame(recommendations).sort_values('score'),
+                x='keyword',
+                y='score',
+                title='키워드 추천 점수',
+                color='score'
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+    elif advanced_mode == '경쟁사 분석':
+        st.subheader('⚔️ 경쟁사 키워드 분석')
+        st.markdown('**경쟁사의 키워드 전략을 분석하고 기회 발굴**')
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            competitor_input = st.text_area('경쟁사 키워드들:',
+                                           placeholder='경쟁사1\n경쟁사2\n경쟁사3',
+                                           height=120)
+
+        with col2:
+            your_input = st.text_area('우리의 키워드들:',
+                                     placeholder='우리1\n우리2\n우리3',
+                                     height=120)
+
+        if competitor_input and your_input and st.button('경쟁사 분석 시작'):
+            competitor_kws = [kw.strip() for kw in competitor_input.split('\n') if kw.strip()]
+            your_kws = [kw.strip() for kw in your_input.split('\n') if kw.strip()]
+
+            with st.spinner('🔄 경쟁 분석 중...'):
+                comp_analysis = analyzer.analyze_competitor_keywords(competitor_kws, your_kws)
+
+            # 결과 표시
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                st.metric('공통 키워드', len(comp_analysis['overlap_keywords']))
+            with col2:
+                st.metric('경쟁사 독점', len(comp_analysis['competitor_unique']))
+            with col3:
+                st.metric('우리 독점', len(comp_analysis['your_unique']))
+
+            st.divider()
+
+            # 발견된 기회
+            st.subheader('🎯 발견된 기회 키워드')
+
+            if comp_analysis['opportunities']:
+                opp_df = pd.DataFrame([
+                    {
+                        'Keyword': opp['keyword'],
+                        'Opportunity Score': f"{opp['opportunity_score']:.1f}",
+                        'Search Volume': f"{opp['volume']:,}",
+                        'Difficulty': f"{opp['difficulty']}/100"
+                    }
+                    for opp in comp_analysis['opportunities'][:10]
+                ])
+
+                st.dataframe(opp_df, use_container_width=True)
+
+                # 기회 시각화
+                fig = px.scatter(
+                    pd.DataFrame(comp_analysis['opportunities'][:10]),
+                    x='difficulty',
+                    y='volume',
+                    size='opportunity_score',
+                    hover_data=['keyword'],
+                    title='기회 키워드 매트릭스 (X: 난이도, Y: 검색량)',
+                    labels={'difficulty': '난이도', 'volume': '검색량'}
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning('발견된 기회가 없습니다.')
+
+    else:  # 검색 의도 분석
+        st.subheader('🔍 검색 의도 분석')
+        st.markdown('**Informational, Navigational, Commercial, Transactional**')
+
+        keyword = st.text_input('키워드 입력:', placeholder='예: 최고의 노트북 가격 비교')
+
+        if keyword:
+            with st.spinner('🔄 검색 의도 분석 중...'):
+                intent_analysis = analyzer.analyze_search_intent(keyword)
+
+            intent_emoji = {
+                'informational': '📚',
+                'navigational': '🧭',
+                'commercial': '🛍️',
+                'transactional': '💳'
+            }
+
+            intent_names = {
+                'informational': '정보 검색 (정보 얻기)',
+                'navigational': '네비게이션 (사이트 찾기)',
+                'commercial': '상업 (비교/리뷰)',
+                'transactional': '거래 (구매)'
+            }
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.write('### 🎯 주요 검색 의도')
+                primary = intent_analysis['primary_intent']
+                st.success(f"{intent_emoji.get(primary, '')} {intent_names.get(primary, 'Unknown')}")
+                st.write(f"신뢰도: {intent_analysis['confidence']:.1%}")
+
+            with col2:
+                st.write('### 📊 의도별 점수')
+                scores = intent_analysis['intent_scores']
+
+                fig = px.bar(
+                    x=list(scores.keys()),
+                    y=list(scores.values()),
+                    title='검색 의도 분포',
+                    labels={'x': '의도 유형', 'y': '점수'}
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+# Tab 5: Performance & History
+with tab5:
+    st.header('📈 성능 예측 & 히스토리')
+
+    perf_mode = st.radio('분석 선택:',
+                        ['성능 예측', '계절성 감지', '키워드 히스토리'],
+                        horizontal=True)
+
+    if perf_mode == '성능 예측':
+        st.subheader('🔮 향후 3개월 키워드 성능 예측')
+
+        keyword = st.text_input('예측할 키워드:', placeholder='예: 인공지능 기초')
+
+        if keyword:
+            with st.spinner('🔄 성능 예측 중...'):
+                prediction = analyzer.predict_keyword_performance(keyword, months=3)
+
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                st.metric('현재 검색량', f"{prediction['current_volume']:.0f}")
+            with col2:
+                trend_emoji = '📈' if prediction['predicted_trend'] == 'increasing' else '📉'
+                st.metric('예측 트렌드', f"{trend_emoji} {prediction['predicted_trend']}")
+            with col3:
+                st.metric('예측 신뢰도', f"{prediction['confidence']:.1f}%")
+
+            # 예측 그래프
+            st.subheader('📊 3개월 검색량 예측')
+
+            pred_df = pd.DataFrame({
+                'Date': prediction['prediction_dates'],
+                'Predicted Volume': prediction['predicted_volumes']
+            })
+
+            fig = px.line(
+                pred_df,
+                x='Date',
+                y='Predicted Volume',
+                title=f'"{keyword}" 예상 검색량 변화',
+                markers=True
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+    elif perf_mode == '계절성 감지':
+        st.subheader('📅 계절성 패턴 분석')
+
+        keyword = st.text_input('계절성을 분석할 키워드:', placeholder='예: 크리스마스')
+
+        if keyword:
+            with st.spinner('🔄 계절성 분석 중...'):
+                seasonality = analyzer.detect_seasonality(keyword, days=365)
+
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                st.metric('계절성 강도', f"{seasonality['seasonality_strength']:.2f}")
+            with col2:
+                st.write('**피크 월:**')
+                for month in seasonality['peak_months']:
+                    st.write(f"  • {month}")
+            with col3:
+                st.write('**저점 월:**')
+                for month in seasonality['low_months']:
+                    st.write(f"  • {month}")
+
+            # 월별 패턴
+            st.subheader('📈 월별 검색량 패턴')
+
+            monthly_df = pd.DataFrame({
+                'Month': list(seasonality['monthly_pattern'].keys()),
+                'Search Volume': list(seasonality['monthly_pattern'].values())
+            })
+
+            fig = px.bar(
+                monthly_df,
+                x='Month',
+                y='Search Volume',
+                title='월별 평균 검색량',
+                color='Search Volume'
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            # 포스팅 일정 추천
+            st.divider()
+            st.subheader('📅 최적 포스팅 일정')
+
+            recommendation = seasonality['recommendation']
+
+            col1, col2 = st.columns(2)
+            with col1:
+                st.info(f"**최고의 달:** {recommendation['best_month']}")
+                st.info(f"**최고의 요일:** {recommendation['best_day']}")
+            with col2:
+                st.warning(f"**피해야 할 달:** {', '.join(recommendation['avoid_months'])}")
+                st.info(f"**추천 주기:** {recommendation['posting_frequency']}")
+
+    else:  # 키워드 히스토리
+        st.subheader('📜 키워드 분석 히스토리')
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            keyword = st.text_input('검색 키워드:', placeholder='예: 파이썬')
+            days = st.slider('조회 기간 (일):', 1, 90, 30)
+
+        with col2:
+            st.write('**유명 키워드 Top 10**')
+            try:
+                top_keywords = analyzer.db.get_top_keywords(10)
+                if not top_keywords.empty:
+                    for idx, row in top_keywords.iterrows():
+                        st.write(f"{idx+1}. {row['keyword']} ({int(row['count'])}회)")
+                else:
+                    st.info('히스토리가 없습니다.')
+            except:
+                st.info('히스토리 데이터가 없습니다.')
+
+        if keyword:
+            try:
+                history = analyzer.db.get_analysis_history(keyword, days)
+
+                if not history.empty:
+                    st.dataframe(history, use_container_width=True)
+
+                    # 시간대별 추이
+                    history_df = history.copy()
+                    history_df['timestamp'] = pd.to_datetime(history_df['timestamp'])
+                    history_df = history_df.sort_values('timestamp')
+
+                    fig = px.line(
+                        history_df,
+                        x='timestamp',
+                        y='search_volume',
+                        color='portal',
+                        title=f'"{keyword}" 히스토리'
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info('분석 히스토리가 없습니다.')
+            except Exception as e:
+                st.warning(f'히스토리 조회 실패: {str(e)}')
+
+# Tab 6: Settings
+with tab6:
+    st.header('⚙️ 설정 & 도구')
+
+    settings_mode = st.radio('설정 선택:',
+                            ['데이터 내보내기', '분석 리포트', '데이터베이스 정보'],
+                            horizontal=True)
+
+    if settings_mode == '데이터 내보내기':
+        st.subheader('📥 키워드 분석 데이터 내보내기')
+
+        keyword = st.text_input('내보낼 키워드:', placeholder='예: 파이썬 튜토리얼')
+
+        if keyword:
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                if st.button('JSON 형식'):
+                    analysis = analyzer.analyze_multi_portal(keyword)
+                    msg = exporter.export_to_json(analysis, f'{keyword}_analysis.json')
+                    st.success(msg)
+
+            with col2:
+                if st.button('CSV 형식'):
+                    df = pd.DataFrame([
+                        {
+                            'Keyword': keyword,
+                            'Analysis Date': datetime.now().isoformat()
+                        }
+                    ])
+                    msg = exporter.export_to_csv(df, f'{keyword}_analysis.csv')
+                    st.success(msg)
+
+            with col3:
+                if st.button('보고서 생성'):
+                    analysis = analyzer.analyze_multi_portal(keyword)
+                    msg = exporter.generate_report(analysis, f'{keyword}_report.json')
+                    st.success(msg)
+
+    elif settings_mode == '분석 리포트':
+        st.subheader('📊 종합 분석 리포트 생성')
+
+        keywords_input = st.text_area('분석할 키워드들 (한 줄에 하나):',
+                                     placeholder='키워드1\n키워드2\n키워드3',
+                                     height=100)
+
+        if st.button('리포트 생성'):
+            if keywords_input:
+                keywords = [kw.strip() for kw in keywords_input.split('\n') if kw.strip()]
+
+                with st.spinner('🔄 리포트 생성 중...'):
+                    all_analysis = {}
+
+                    for kw in keywords:
+                        all_analysis[kw] = {
+                            'multi_portal': analyzer.analyze_multi_portal(kw),
+                            'short_long': analyzer.analyze_short_long_keywords(kw),
+                            'intent': analyzer.analyze_search_intent(kw)
+                        }
+
+                    msg = exporter.generate_report(all_analysis, 'comprehensive_report.json')
+                    st.success(msg)
+                    st.info(f'✅ {len(keywords)}개 키워드에 대한 종합 리포트가 생성되었습니다.')
+            else:
+                st.warning('키워드를 입력해주세요.')
+
+    else:  # 데이터베이스 정보
+        st.subheader('💾 데이터베이스 정보')
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.write('**데이터베이스 위치:**')
+            st.code(analyzer.db.db_path, language='text')
+
+            if st.button('🗑️ 데이터베이스 초기화'):
+                try:
+                    if os.path.exists(analyzer.db.db_path):
+                        os.remove(analyzer.db.db_path)
+                        st.success('✅ 데이터베이스가 초기화되었습니다.')
+                    else:
+                        st.info('데이터베이스가 없습니다.')
+                except Exception as e:
+                    st.error(f'초기화 실패: {str(e)}')
+
+        with col2:
+            st.write('**시스템 정보:**')
+            st.write(f"- 분석 모듈: Advanced Keyword Analyzer v2.0")
+            st.write(f"- 지원 포털: Google, Naver, Daum, YouTube")
+            st.write(f"- 데이터 저장소: SQLite")
+            st.write(f"- 마지막 업데이트: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
