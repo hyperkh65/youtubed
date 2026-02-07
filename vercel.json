@@ -2,15 +2,5 @@
   "buildCommand": "npm run build",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "outputDirectory": ".next",
-  "env": {
-    "NOTION_API_TOKEN": "@notion_api_token",
-    "NOTION_DB_KEYWORD_ANALYSIS": "@notion_db_keyword_analysis",
-    "NOTION_DB_TREND_DATA": "@notion_db_trend_data",
-    "NOTION_DB_RECOMMENDATIONS": "@notion_db_recommendations",
-    "NOTION_DB_COMPETITOR": "@notion_db_competitor",
-    "NOTION_DB_INTENT": "@notion_db_intent",
-    "NOTION_DB_PREDICTION": "@notion_db_prediction",
-    "NEXT_PUBLIC_API_URL": "@api_url"
-  }
+  "outputDirectory": ".next"
 }
