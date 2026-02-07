@@ -90,16 +90,32 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('analysis')
   const [showIndustrySelector, setShowIndustrySelector] = useState(true)
+  const [userTier, setUserTier] = useState<'free' | 'pro' | 'team'>('free')
+  const [monthlyAnalysisCount, setMonthlyAnalysisCount] = useState(0)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
   const industryConfig = INDUSTRY_CONFIGS[selectedIndustry]
   const trendingKeywords = INDUSTRY_TRENDING[selectedIndustry]
+  const canAnalyze = userTier === 'free' ? monthlyAnalysisCount < 10 : true
+  const analysisRemaining = userTier === 'free' ? 10 - monthlyAnalysisCount : '무제한'
 
   const togglePortal = (portal: string) => {
-    setSelectedPortals(prev =>
-      prev.includes(portal)
-        ? prev.filter(p => p !== portal)
-        : [...prev, portal]
-    )
+    // Free 사용자는 1개 포털만 선택 가능
+    if (userTier === 'free') {
+      if (selectedPortals.includes(portal)) {
+        setSelectedPortals(prev => prev.filter(p => p !== portal))
+      } else if (selectedPortals.length < 1) {
+        setSelectedPortals([portal])
+      } else {
+        alert('Free 플랜은 1개 포털만 선택 가능합니다.\nPro로 업그레이드하면 6개 포털까지 동시 분석 가능합니다.')
+      }
+    } else {
+      setSelectedPortals(prev =>
+        prev.includes(portal)
+          ? prev.filter(p => p !== portal)
+          : [...prev, portal]
+      )
+    }
   }
 
   const handleAnalyze = async () => {
@@ -113,6 +129,12 @@ export default function Home() {
       return
     }
 
+    // Free 사용자 분석 횟수 제한 확인
+    if (userTier === 'free' && monthlyAnalysisCount >= 10) {
+      setShowUpgradeModal(true)
+      return
+    }
+
     setLoading(true)
     try {
       const response = await axios.post('/api/keywords/analyze', {
@@ -123,6 +145,11 @@ export default function Home() {
       setAnalysis(response.data)
       setShowIndustrySelector(false)
       setActiveTab('analysis')
+
+      // 분석 횟수 증가
+      if (userTier === 'free') {
+        setMonthlyAnalysisCount(prev => prev + 1)
+      }
     } catch (error) {
       console.error('분석 오류:', error)
       alert('분석 중 오류가 발생했습니다')
@@ -166,6 +193,65 @@ export default function Home() {
       </Head>
 
       <main className="min-h-screen bg-black text-white">
+        {/* 업그레이드 모달 */}
+        {showUpgradeModal && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 px-4">
+            <div className="bg-slate-900 border-2 border-emerald-500 rounded-2xl p-8 max-w-md">
+              <h2 className="text-2xl font-bold mb-4">🚀 무제한 분석하기</h2>
+              <p className="text-slate-400 mb-6">
+                이달 분석 횟수를 모두 사용했습니다.
+                <br/><br/>
+                <strong>Pro로 업그레이드하면:</strong>
+              </p>
+              <ul className="space-y-2 text-sm mb-8 text-slate-300">
+                <li>✅ 무제한 분석</li>
+                <li>✅ 6개 포털 동시 분석</li>
+                <li>✅ 검색 의도, 경쟁사, 트렌드 분석</li>
+                <li>✅ 신뢰도 85%+ (Google API)</li>
+              </ul>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="flex-1 px-4 py-3 border border-slate-600 text-white rounded-lg hover:bg-slate-800 transition"
+                >
+                  나중에
+                </button>
+                <a
+                  href="/pricing"
+                  className="flex-1 px-4 py-3 bg-emerald-500 text-black font-bold rounded-lg hover:bg-emerald-600 transition text-center"
+                >
+                  Pro 보기 ($19/월)
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Free 티어 분석 횟수 표시 */}
+        {userTier === 'free' && (
+          <div className="sticky top-16 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-b border-yellow-500/20 px-4 py-3 z-40">
+            <div className="max-w-6xl mx-auto flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <span className="font-semibold">
+                  📊 이달 분석: {monthlyAnalysisCount}/10 사용됨
+                </span>
+                <div className="w-40 bg-slate-700 rounded-full h-2">
+                  <div
+                    className="bg-yellow-500 h-2 rounded-full transition-all"
+                    style={{ width: `${(monthlyAnalysisCount / 10) * 100}%` }}
+                  />
+                </div>
+              </div>
+              <a
+                href="/pricing"
+                className="px-4 py-1 bg-emerald-500 hover:bg-emerald-600 text-black text-sm font-bold rounded transition"
+              >
+                Pro 업그레이드 →
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* 히어로 섹션 */}
         <section className="relative min-h-[700px] bg-gradient-to-b from-black via-emerald-950/5 to-black px-4 py-20">
           <div className="max-w-6xl mx-auto">
@@ -310,44 +396,44 @@ export default function Home() {
                   📊 분석 결과
                 </button>
                 <button
-                  onClick={() => setActiveTab('intent')}
-                  className={`pb-4 px-2 font-semibold transition whitespace-nowrap ${
+                  onClick={() => userTier === 'free' ? setShowUpgradeModal(true) : setActiveTab('intent')}
+                  className={`pb-4 px-2 font-semibold transition whitespace-nowrap flex items-center gap-1 ${
                     activeTab === 'intent'
                       ? 'text-emerald-400 border-b-2 border-emerald-400'
                       : 'text-slate-400 hover:text-slate-200'
-                  }`}
+                  } ${userTier === 'free' ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  🎯 검색 의도
+                  🎯 검색 의도 {userTier === 'free' && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded">Pro</span>}
                 </button>
                 <button
-                  onClick={() => setActiveTab('trends')}
-                  className={`pb-4 px-2 font-semibold transition whitespace-nowrap ${
+                  onClick={() => userTier === 'free' ? setShowUpgradeModal(true) : setActiveTab('trends')}
+                  className={`pb-4 px-2 font-semibold transition whitespace-nowrap flex items-center gap-1 ${
                     activeTab === 'trends'
                       ? 'text-emerald-400 border-b-2 border-emerald-400'
                       : 'text-slate-400 hover:text-slate-200'
-                  }`}
+                  } ${userTier === 'free' ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  📈 트렌드 분석
+                  📈 트렌드 분석 {userTier === 'free' && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded">Pro</span>}
                 </button>
                 <button
-                  onClick={() => setActiveTab('newsblog')}
-                  className={`pb-4 px-2 font-semibold transition whitespace-nowrap ${
+                  onClick={() => userTier === 'free' ? setShowUpgradeModal(true) : setActiveTab('newsblog')}
+                  className={`pb-4 px-2 font-semibold transition whitespace-nowrap flex items-center gap-1 ${
                     activeTab === 'newsblog'
                       ? 'text-emerald-400 border-b-2 border-emerald-400'
                       : 'text-slate-400 hover:text-slate-200'
-                  }`}
+                  } ${userTier === 'free' ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  📰 뉴스/블로그
+                  📰 뉴스/블로그 {userTier === 'free' && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded">Pro</span>}
                 </button>
                 <button
-                  onClick={() => setActiveTab('competitors')}
-                  className={`pb-4 px-2 font-semibold transition whitespace-nowrap ${
+                  onClick={() => userTier === 'free' ? setShowUpgradeModal(true) : setActiveTab('competitors')}
+                  className={`pb-4 px-2 font-semibold transition whitespace-nowrap flex items-center gap-1 ${
                     activeTab === 'competitors'
                       ? 'text-emerald-400 border-b-2 border-emerald-400'
                       : 'text-slate-400 hover:text-slate-200'
-                  }`}
+                  } ${userTier === 'free' ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  🏆 경쟁사 분석
+                  🏆 경쟁사 분석 {userTier === 'free' && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded">Pro</span>}
                 </button>
                 <button
                   onClick={() => setActiveTab('recommendations')}

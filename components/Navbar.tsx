@@ -13,15 +13,15 @@ export default function Navbar() {
 
           {/* 네비게이션 링크 */}
           <div className="flex gap-8 items-center">
-            <a href="#features" className="text-slate-400 hover:text-white text-sm transition">
-              기능
-            </a>
-            <a href="#pricing" className="text-slate-400 hover:text-white text-sm transition">
+            <Link href="/pricing" className="text-slate-400 hover:text-white text-sm transition">
               가격책정
+            </Link>
+            <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white text-sm transition">
+              문서
             </a>
-            <button className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-black font-semibold transition">
+            <Link href="/" className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-black font-semibold transition">
               무료 시작
-            </button>
+            </Link>
           </div>
         </div>
       </div>
