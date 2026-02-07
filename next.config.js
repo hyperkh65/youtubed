@@ -5,14 +5,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  experimental: {
-    appDir: false,
-  },
-  api: {
-    bodyParser: {
-      sizeLimit: '1mb',
-    },
-  },
 }
 
 module.exports = nextConfig
