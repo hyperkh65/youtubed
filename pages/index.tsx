@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import Head from 'next/head'
 import axios from 'axios'
 import dynamic from 'next/dynamic'
+import { useSession, signIn } from 'next-auth/react'
+import Link from 'next/link'
 
 const Plot = dynamic(() => import('react-plotly.js'), { ssr: false })
 
@@ -82,6 +84,7 @@ const TrustBadge = ({ score }: { score: number }) => {
 }
 
 export default function Home() {
+  const { data: session, status } = useSession()
   const [selectedIndustry, setSelectedIndustry] = useState<'seo' | 'ecommerce' | 'content' | 'agency'>('seo')
   const [keyword, setKeyword] = useState('')
   const [selectedPortals, setSelectedPortals] = useState<string[]>(['Naver', 'Google'])
@@ -93,6 +96,13 @@ export default function Home() {
   const [userTier, setUserTier] = useState<'free' | 'pro' | 'team'>('free')
   const [monthlyAnalysisCount, setMonthlyAnalysisCount] = useState(0)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+
+  // 로그인 상태에 따라 userTier 업데이트
+  useEffect(() => {
+    if (session?.user) {
+      setUserTier((session.user as any).tier || 'free')
+    }
+  }, [session])
 
   const industryConfig = INDUSTRY_CONFIGS[selectedIndustry]
   const trendingKeywords = INDUSTRY_TRENDING[selectedIndustry]
@@ -182,6 +192,58 @@ export default function Home() {
 
   const handleTrendingClick = (trendingKeyword: string) => {
     setKeyword(trendingKeyword)
+  }
+
+  // 로그인 필수
+  if (!session?.user) {
+    return (
+      <>
+        <Head>
+          <title>KeyPoint Pro - 범용 키워드 분석 플랫폼</title>
+          <meta name="description" content="모든 산업의 키워드 기회를 찾아주는 데이터 분석 플랫폼" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+        </Head>
+
+        <main className="min-h-screen bg-gradient-to-br from-black via-slate-900 to-black flex items-center justify-center px-4">
+          <div className="max-w-md w-full text-center">
+            <div className="text-6xl mb-6">🔍</div>
+            <h1 className="text-4xl font-bold mb-4 text-white">KeyPoint Pro</h1>
+            <p className="text-slate-400 mb-8">
+              모든 산업의 키워드 기회를<br />
+              찾아주는 데이터 분석 플랫폼
+            </p>
+
+            <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-8 mb-8">
+              <p className="text-slate-300 mb-6">
+                무료로 시작하여 강력한 키워드 분석을 경험하세요.
+              </p>
+
+              <button
+                onClick={() => signIn('google')}
+                className="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-bold py-3 rounded-lg transition mb-3"
+              >
+                무료로 시작하기
+              </button>
+
+              <Link
+                href="/auth/signin"
+                className="block text-sm text-slate-400 hover:text-white transition"
+              >
+                다른 로그인 옵션 →
+              </Link>
+            </div>
+
+            <p className="text-xs text-slate-500">
+              로그인하면{' '}
+              <a href="#" className="text-slate-400 hover:text-white underline">
+                이용약관
+              </a>
+              에 동의하는 것입니다
+            </p>
+          </div>
+        </main>
+      </>
+    )
   }
 
   return (
