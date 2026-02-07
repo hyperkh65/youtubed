@@ -2,25 +2,42 @@ import React, { useState } from 'react'
 import Head from 'next/head'
 import axios from 'axios'
 
+const TRENDING_KEYWORDS = [
+  { keyword: '유튜브 SEO', trend: 'rising', volume: 45000 },
+  { keyword: '콘텐츠 마케팅', trend: 'rising', volume: 38000 },
+  { keyword: '숏폼 영상', trend: 'hot', volume: 72000 },
+  { keyword: '키워드 분석', trend: 'rising', volume: 28000 },
+  { keyword: '유튜브 알고리즘', trend: 'stable', volume: 55000 },
+  { keyword: '채널 성장', trend: 'rising', volume: 34000 },
+]
+
+const PORTALS = ['Naver', 'Google', 'Daum', 'YouTube']
+
 export default function Home() {
   const [keyword, setKeyword] = useState('')
+  const [selectedPortal, setSelectedPortal] = useState('Naver')
   const [analysis, setAnalysis] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
   const [recommendations, setRecommendations] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState('analysis')
 
   const handleAnalyze = async () => {
     if (!keyword.trim()) {
-      alert('Please enter a keyword')
+      alert('키워드를 입력해주세요')
       return
     }
 
     setLoading(true)
     try {
-      const response = await axios.post('/api/keywords/analyze', { keyword })
+      const response = await axios.post('/api/keywords/analyze', {
+        keyword,
+        portal: selectedPortal
+      })
       setAnalysis(response.data)
+      setActiveTab('analysis')
     } catch (error) {
-      console.error('Analysis error:', error)
-      alert('Error analyzing keyword')
+      console.error('분석 오류:', error)
+      alert('분석 중 오류가 발생했습니다')
     } finally {
       setLoading(false)
     }
@@ -28,181 +45,461 @@ export default function Home() {
 
   const handleGetRecommendations = async () => {
     if (!keyword.trim()) {
-      alert('Please enter a keyword')
+      alert('키워드를 입력해주세요')
       return
     }
 
     setLoading(true)
     try {
       const response = await axios.post('/api/keywords/recommendations', {
-        keywords: [keyword]
+        keywords: [keyword],
+        portal: selectedPortal
       })
       setRecommendations(response.data.recommendations || [])
+      setActiveTab('recommendations')
     } catch (error) {
-      console.error('Recommendations error:', error)
-      alert('Error getting recommendations')
+      console.error('추천 오류:', error)
+      alert('추천 데이터를 불러오는 중 오류가 발생했습니다')
     } finally {
       setLoading(false)
     }
   }
 
+  const handleTrendingClick = (trendingKeyword: string) => {
+    setKeyword(trendingKeyword)
+  }
+
   return (
     <>
       <Head>
-        <title>YouTube Keyword Analyzer</title>
-        <meta name="description" content="Advanced keyword analysis tool" />
+        <title>KeyPoints - YouTube Keyword Analyzer</title>
+        <meta name="description" content="유튜브 마케팅을 위한 가장 강력한 키워드 분석 도구" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Header */}
-        <div className="mb-12 text-center">
-          <h1 className="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400 mb-4">
-            🎯 YouTube Keyword Analyzer
-          </h1>
-          <p className="text-xl text-gray-300 mb-2">
-            Multi-Portal Keyword Analysis Tool
-          </p>
-          <p className="text-sm text-gray-400">
-            Analyze keywords across Google, Naver, Daum, and YouTube
-          </p>
-        </div>
-
-        {/* Search Section */}
-        <div className="bg-slate-800 rounded-lg p-8 mb-8 border border-slate-700">
-          <div className="flex gap-3 mb-4">
-            <input
-              type="text"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleAnalyze()}
-              placeholder="Enter keyword to analyze..."
-              className="flex-1 px-4 py-3 bg-slate-700 text-white rounded border border-slate-600 focus:outline-none focus:border-blue-500"
-            />
-            <button
-              onClick={handleAnalyze}
-              disabled={loading}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded font-semibold transition"
-            >
-              {loading ? 'Analyzing...' : 'Analyze'}
-            </button>
-            <button
-              onClick={handleGetRecommendations}
-              disabled={loading}
-              className="px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded font-semibold transition"
-            >
-              {loading ? 'Loading...' : 'Recommendations'}
-            </button>
-          </div>
-        </div>
-
-        {/* Analysis Results */}
-        {analysis && (
-          <div className="bg-slate-800 rounded-lg p-8 mb-8 border border-slate-700">
-            <h2 className="text-2xl font-bold text-white mb-6">📊 Analysis Results</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {Object.entries(analysis.analysis?.portals || {}).map(([portal, data]: [string, any]) => (
-                <div
-                  key={portal}
-                  className="bg-slate-700 rounded p-4 border border-slate-600 hover:border-blue-500 transition"
-                >
-                  <h3 className="font-bold text-lg text-blue-400 mb-3">{portal}</h3>
-                  <div className="space-y-2 text-sm text-gray-300">
-                    <div>
-                      <span className="text-gray-400">Search Volume:</span>
-                      <p className="font-semibold text-white">
-                        {data.estimated_search_volume?.toLocaleString() || data.monthly_searches?.toLocaleString() || 'N/A'}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">Trend:</span>
-                      <p className="font-semibold text-white capitalize">
-                        {data.trend || 'N/A'}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">Difficulty:</span>
-                      <p className="font-semibold text-white">
-                        {data.keyword_difficulty_score || data.difficulty || 'N/A'}
-                      </p>
-                    </div>
-                    {data.cpc && (
-                      <div>
-                        <span className="text-gray-400">CPC:</span>
-                        <p className="font-semibold text-white">${data.cpc}</p>
-                      </div>
-                    )}
-                    {data.opportunity_score && (
-                      <div>
-                        <span className="text-gray-400">Opportunity:</span>
-                        <p className="font-semibold text-white">{data.opportunity_score}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
+      <main className="min-h-screen bg-black text-white">
+        {/* 히어로 섹션 */}
+        <section className="relative min-h-[600px] bg-gradient-to-b from-black via-emerald-950/10 to-black px-4 py-20">
+          <div className="max-w-5xl mx-auto">
+            {/* 헤드라인 */}
+            <div className="text-center mb-12">
+              <h1 className="text-5xl md:text-6xl font-bold mb-4 leading-tight">
+                유튜브 마케팅을 위한<br />
+                <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
+                  가장 강력한 키워드 분석 도구
+                </span>
+              </h1>
+              <p className="text-lg text-slate-400 mb-8">
+                Naver, Google, Daum, YouTube 전 포털 동시 분석<br />
+                정확한 데이터 기반 마케팅 전략 수립
+              </p>
             </div>
-          </div>
-        )}
 
-        {/* Recommendations */}
-        {recommendations.length > 0 && (
-          <div className="bg-slate-800 rounded-lg p-8 border border-slate-700">
-            <h2 className="text-2xl font-bold text-white mb-6">💡 Keyword Recommendations</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {recommendations.map((rec, idx) => (
-                <div
-                  key={idx}
-                  className="bg-slate-700 rounded p-4 border border-slate-600 hover:border-green-500 transition"
+            {/* 검색 바 */}
+            <div className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-8 mb-12 backdrop-blur">
+              {/* 포털 선택 */}
+              <div className="flex flex-col md:flex-row gap-4 mb-6">
+                <div className="flex-1">
+                  <label className="block text-sm text-slate-400 mb-2">포털 선택</label>
+                  <select
+                    value={selectedPortal}
+                    onChange={(e) => setSelectedPortal(e.target.value)}
+                    className="w-full bg-slate-800 border border-emerald-500/30 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition"
+                  >
+                    {PORTALS.map((portal) => (
+                      <option key={portal} value={portal}>
+                        {portal}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-[3]">
+                  <label className="block text-sm text-slate-400 mb-2">키워드 입력</label>
+                  <input
+                    type="text"
+                    value={keyword}
+                    onChange={(e) => setKeyword(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleAnalyze()}
+                    placeholder="분석할 키워드를 입력하세요..."
+                    className="w-full bg-slate-800 border border-emerald-500/30 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
+                  />
+                </div>
+              </div>
+
+              {/* 버튼 */}
+              <div className="flex gap-3">
+                <button
+                  onClick={handleAnalyze}
+                  disabled={loading}
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-600 text-black font-bold py-3 rounded-lg transition duration-200"
                 >
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold text-green-400">{rec.keyword}</h3>
-                    <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded capitalize">
-                      {rec.type}
+                  {loading ? '분석 중...' : '🔍 분석'}
+                </button>
+                <button
+                  onClick={handleGetRecommendations}
+                  disabled={loading}
+                  className="flex-1 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-600 text-black font-bold py-3 rounded-lg transition duration-200"
+                >
+                  {loading ? '로딩 중...' : '💡 추천 키워드'}
+                </button>
+              </div>
+            </div>
+
+            {/* 트렌딩 해시태그 */}
+            <div className="text-center">
+              <p className="text-sm text-slate-500 mb-4">🔥 지금 핫한 키워드</p>
+              <div className="flex flex-wrap justify-center gap-3">
+                {TRENDING_KEYWORDS.map((item) => (
+                  <button
+                    key={item.keyword}
+                    onClick={() => handleTrendingClick(item.keyword)}
+                    className="px-4 py-2 bg-slate-800 hover:bg-emerald-900/30 border border-emerald-500/30 hover:border-emerald-500/60 rounded-full text-sm transition duration-200"
+                  >
+                    #{item.keyword}
+                    <span className="ml-2 text-emerald-400 text-xs">
+                      {item.trend === 'hot' ? '🔥' : item.trend === 'rising' ? '📈' : '→'}
                     </span>
-                  </div>
-                  <div className="text-sm text-gray-300 space-y-1">
-                    <p>Score: <span className="text-white font-semibold">{rec.score}</span></p>
-                    <p>Volume: <span className="text-white font-semibold">{rec.volume?.toLocaleString()}</span></p>
-                    <p>Difficulty: <span className="text-white font-semibold">{rec.difficulty}</span></p>
-                    <p>Trend: <span className="text-white font-semibold capitalize">{rec.trend}</span></p>
-                    {rec.opportunity_score && (
-                      <p>Opportunity: <span className="text-white font-semibold">{rec.opportunity_score}</span></p>
-                    )}
-                  </div>
-                </div>
-              ))}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
+        </section>
+
+        {/* 탭 네비게이션 */}
+        {(analysis || recommendations.length > 0) && (
+          <section className="max-w-5xl mx-auto px-4 py-12">
+            <div className="border-b border-emerald-500/20 mb-8">
+              <div className="flex gap-8 overflow-x-auto">
+                <button
+                  onClick={() => setActiveTab('analysis')}
+                  className={`pb-4 px-2 font-semibold transition whitespace-nowrap ${
+                    activeTab === 'analysis'
+                      ? 'text-emerald-400 border-b-2 border-emerald-400'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  📊 분석 결과
+                </button>
+                <button
+                  onClick={() => setActiveTab('newsblog')}
+                  className={`pb-4 px-2 font-semibold transition whitespace-nowrap ${
+                    activeTab === 'newsblog'
+                      ? 'text-emerald-400 border-b-2 border-emerald-400'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  📰 뉴스/블로그
+                </button>
+                <button
+                  onClick={() => setActiveTab('recommendations')}
+                  className={`pb-4 px-2 font-semibold transition whitespace-nowrap ${
+                    activeTab === 'recommendations'
+                      ? 'text-emerald-400 border-b-2 border-emerald-400'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  💡 추천 키워드
+                </button>
+              </div>
+            </div>
+
+            {/* 분석 결과 탭 */}
+            {activeTab === 'analysis' && analysis && (
+              <div className="space-y-8">
+                <h2 className="text-3xl font-bold mb-8">
+                  '{keyword}' 분석 결과
+                </h2>
+
+                {/* 포털별 결과 */}
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {Object.entries(analysis.analysis?.portals || {}).map(([portal, data]: [string, any]) => (
+                    <div
+                      key={portal}
+                      className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6 hover:border-emerald-500/60 transition"
+                    >
+                      <h3 className="text-emerald-400 font-bold text-lg mb-4">{portal}</h3>
+                      <div className="space-y-3 text-sm">
+                        <div>
+                          <span className="text-slate-400">월간 검색량</span>
+                          <p className="text-white font-bold text-lg">
+                            {data.estimated_search_volume?.toLocaleString() ||
+                             data.monthly_searches?.toLocaleString() ||
+                             'N/A'}
+                          </p>
+                        </div>
+                        <div className="pt-2 border-t border-slate-700">
+                          <span className="text-slate-400">트렌드</span>
+                          <p className="text-white font-semibold capitalize">
+                            {data.trend === 'rising' && '📈'} {data.trend || 'N/A'}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-slate-400">난이도</span>
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="flex-1 bg-slate-700 rounded-full h-2">
+                              <div
+                                className="bg-emerald-500 h-2 rounded-full"
+                                style={{
+                                  width: `${(data.keyword_difficulty_score || data.difficulty || 0)}%`,
+                                }}
+                              />
+                            </div>
+                            <span className="text-white font-bold">
+                              {data.keyword_difficulty_score || data.difficulty || 0}
+                            </span>
+                          </div>
+                        </div>
+                        {data.cpc && (
+                          <div>
+                            <span className="text-slate-400">CPC</span>
+                            <p className="text-cyan-400 font-bold">${data.cpc}</p>
+                          </div>
+                        )}
+                        {data.opportunity_score && (
+                          <div>
+                            <span className="text-slate-400">기회 점수</span>
+                            <p className="text-emerald-400 font-bold">{data.opportunity_score}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 뉴스/블로그 탭 */}
+            {activeTab === 'newsblog' && analysis && (
+              <div className="space-y-8">
+                <h2 className="text-3xl font-bold mb-8">
+                  '{keyword}' 뉴스 & 블로그 분석
+                </h2>
+
+                {/* 포털별 뉴스/블로그 데이터 */}
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                  {Object.entries(analysis.analysis?.newsAndBlog || {}).map(([portal, data]: [string, any]) => (
+                    <div key={portal} className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6">
+                      <h3 className="text-emerald-400 font-bold text-lg mb-6 border-b border-slate-700 pb-4">
+                        {portal}
+                      </h3>
+
+                      {/* 뉴스 섹션 */}
+                      <div className="mb-6">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-slate-400 font-semibold">📰 뉴스</span>
+                          <span
+                            className={`text-sm px-2 py-1 rounded-full ${
+                              data.newsTrend === 'rising'
+                                ? 'bg-emerald-500/20 text-emerald-300'
+                                : data.newsTrend === 'declining'
+                                ? 'bg-red-500/20 text-red-300'
+                                : 'bg-slate-500/20 text-slate-300'
+                            }`}
+                          >
+                            {data.newsTrend === 'rising' ? '📈' : data.newsTrend === 'declining' ? '📉' : '→'}
+                          </span>
+                        </div>
+                        <p className="text-white font-bold text-2xl mb-2">{data.newsCount30d}</p>
+                        <p className="text-slate-400 text-sm">
+                          일일 {data.newsVelocity}개 / 30일 기준
+                        </p>
+                      </div>
+
+                      {/* 블로그 섹션 */}
+                      <div className="pt-6 border-t border-slate-700">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-slate-400 font-semibold">📝 블로그</span>
+                          <span
+                            className={`text-sm px-2 py-1 rounded-full ${
+                              data.blogTrend === 'rising'
+                                ? 'bg-emerald-500/20 text-emerald-300'
+                                : data.blogTrend === 'declining'
+                                ? 'bg-red-500/20 text-red-300'
+                                : 'bg-slate-500/20 text-slate-300'
+                            }`}
+                          >
+                            {data.blogTrend === 'rising' ? '📈' : data.blogTrend === 'declining' ? '📉' : '→'}
+                          </span>
+                        </div>
+                        <p className="text-white font-bold text-2xl mb-2">{data.blogCount30d}</p>
+                        <p className="text-slate-400 text-sm">
+                          일일 {data.blogVelocity}개 / 30일 기준
+                        </p>
+                      </div>
+
+                      {/* 활동 점수 */}
+                      {data.score !== undefined && (
+                        <div className="pt-6 border-t border-slate-700">
+                          <span className="text-slate-400 text-sm">활동 점수</span>
+                          <p className="text-cyan-400 font-bold text-xl mt-1">{data.score.toFixed(1)}/10</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* 트렌딩 뉴스 및 상위 블로그 */}
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* 트렌딩 뉴스 */}
+                  {Object.entries(analysis.analysis?.newsAndBlog || {}).map(([portal, data]: [string, any]) =>
+                    data.trendingNews && data.trendingNews.length > 0 ? (
+                      <div key={`${portal}-news`} className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6">
+                        <h4 className="text-emerald-400 font-bold mb-4">🔥 {portal} 트렌딩 뉴스</h4>
+                        <div className="space-y-3">
+                          {data.trendingNews.map((news: any, idx: number) => (
+                            <div key={idx} className="pb-3 border-b border-slate-700 last:border-0">
+                              <p className="text-white text-sm font-semibold mb-1">{news.title}</p>
+                              <p className="text-slate-400 text-xs">{news.date}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null
+                  )}
+
+                  {/* 상위 블로그 */}
+                  {Object.entries(analysis.analysis?.newsAndBlog || {}).map(([portal, data]: [string, any]) =>
+                    data.topBlogs && data.topBlogs.length > 0 ? (
+                      <div key={`${portal}-blogs`} className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6">
+                        <h4 className="text-emerald-400 font-bold mb-4">⭐ {portal} 상위 블로그</h4>
+                        <div className="space-y-3">
+                          {data.topBlogs.map((blog: any, idx: number) => (
+                            <div key={idx} className="pb-3 border-b border-slate-700 last:border-0">
+                              <div className="flex justify-between items-center">
+                                <p className="text-white text-sm font-semibold">{blog.blog}</p>
+                                <span className="text-emerald-400 text-xs font-bold">{blog.posts}개</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 추천 키워드 탭 */}
+            {activeTab === 'recommendations' && recommendations.length > 0 && (
+              <div className="space-y-8">
+                <h2 className="text-3xl font-bold mb-8">
+                  '{keyword}' 연관 키워드 추천
+                </h2>
+
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {recommendations.map((rec, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6 hover:border-emerald-500/60 transition"
+                    >
+                      <div className="flex justify-between items-start mb-4">
+                        <h3 className="text-emerald-400 font-bold flex-1">{rec.keyword}</h3>
+                        <span className="text-xs bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full capitalize">
+                          {rec.type}
+                        </span>
+                      </div>
+
+                      <div className="space-y-3 text-sm">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <span className="text-slate-400">점수</span>
+                            <p className="text-emerald-400 font-bold text-lg">{rec.score}</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">검색량</span>
+                            <p className="text-white font-bold">{rec.volume?.toLocaleString()}</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-700">
+                          <div>
+                            <span className="text-slate-400">난이도</span>
+                            <p className="text-white font-bold">{rec.difficulty}</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">트렌드</span>
+                            <p className="text-white font-bold capitalize">
+                              {rec.trend === 'rising' && '📈'}
+                              {rec.trend === 'stable' && '→'}
+                              {rec.trend === 'declining' && '📉'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
         )}
 
-        {/* Info */}
-        {!analysis && !recommendations.length && (
-          <div className="bg-slate-800 rounded-lg p-8 text-center border border-slate-700">
-            <p className="text-gray-400 mb-4">
-              Enter a keyword above to analyze it across multiple search portals
-            </p>
-            <div className="grid grid-cols-4 gap-4 mt-8">
-              <div>
-                <div className="text-3xl mb-2">🔍</div>
-                <p className="text-sm text-gray-300">Google Analysis</p>
+        {/* 초기 상태 - 정보 섹션 */}
+        {!analysis && recommendations.length === 0 && (
+          <section className="max-w-5xl mx-auto px-4 py-20">
+            <div className="grid md:grid-cols-4 gap-8">
+              <div className="text-center">
+                <div className="text-5xl mb-4">🔍</div>
+                <h3 className="text-lg font-bold mb-2">다중 포털 분석</h3>
+                <p className="text-slate-400 text-sm">Naver, Google, Daum, YouTube 동시 분석</p>
               </div>
-              <div>
-                <div className="text-3xl mb-2">📊</div>
-                <p className="text-sm text-gray-300">Naver Search</p>
+              <div className="text-center">
+                <div className="text-5xl mb-4">📊</div>
+                <h3 className="text-lg font-bold mb-2">상세 데이터</h3>
+                <p className="text-slate-400 text-sm">검색량, 난이도, 트렌드 등 정확한 정보</p>
               </div>
-              <div>
-                <div className="text-3xl mb-2">🎯</div>
-                <p className="text-sm text-gray-300">Daum Trends</p>
+              <div className="text-center">
+                <div className="text-5xl mb-4">💡</div>
+                <h3 className="text-lg font-bold mb-2">키워드 추천</h3>
+                <p className="text-slate-400 text-sm">AI 기반 연관 키워드 추천</p>
               </div>
-              <div>
-                <div className="text-3xl mb-2">📹</div>
-                <p className="text-sm text-gray-300">YouTube Video</p>
+              <div className="text-center">
+                <div className="text-5xl mb-4">⚡</div>
+                <h3 className="text-lg font-bold mb-2">실시간 분석</h3>
+                <p className="text-slate-400 text-sm">즉시 결과 확인 및 활용</p>
               </div>
             </div>
-          </div>
+          </section>
         )}
-      </div>
+
+        {/* 푸터 */}
+        <footer className="border-t border-slate-800 mt-20">
+          <div className="max-w-5xl mx-auto px-4 py-12">
+            <div className="grid md:grid-cols-4 gap-8 mb-8">
+              <div>
+                <h4 className="font-bold mb-4 text-emerald-400">KeyPoints</h4>
+                <p className="text-slate-400 text-sm">유튜브 마케팅 성공의 첫 걸음</p>
+              </div>
+              <div>
+                <h4 className="font-bold mb-4">제품</h4>
+                <ul className="space-y-2 text-slate-400 text-sm">
+                  <li><a href="#" className="hover:text-emerald-400 transition">분석</a></li>
+                  <li><a href="#" className="hover:text-emerald-400 transition">추천</a></li>
+                  <li><a href="#" className="hover:text-emerald-400 transition">비교</a></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-bold mb-4">회사</h4>
+                <ul className="space-y-2 text-slate-400 text-sm">
+                  <li><a href="#" className="hover:text-emerald-400 transition">소개</a></li>
+                  <li><a href="#" className="hover:text-emerald-400 transition">블로그</a></li>
+                  <li><a href="#" className="hover:text-emerald-400 transition">문의</a></li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-bold mb-4">법률</h4>
+                <ul className="space-y-2 text-slate-400 text-sm">
+                  <li><a href="#" className="hover:text-emerald-400 transition">이용약관</a></li>
+                  <li><a href="#" className="hover:text-emerald-400 transition">개인정보</a></li>
+                </ul>
+              </div>
+            </div>
+            <div className="border-t border-slate-800 pt-8 text-center text-slate-500 text-sm">
+              <p>&copy; 2024 KeyPoints. All rights reserved.</p>
+            </div>
+          </div>
+        </footer>
+      </main>
     </>
   )
 }
