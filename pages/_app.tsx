@@ -6,7 +6,7 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <main className="min-h-screen bg-black">
         <Component {...pageProps} />
       </main>
       <Toaster position="bottom-right" />
