@@ -10,10 +10,13 @@ import {
   calculateNewsAndBlogScore,
   generate12MonthTrendData,
   analyzeSeasonality,
+  analyzeCompetitors,
+  calculateCompetitionIntensity,
   type NewsAndBlogData,
   type TrendDataPoint,
   type MonthlyTrendData,
-  type SeasonalityAnalysis
+  type SeasonalityAnalysis,
+  type CompetitorAnalysis
 } from '@/lib/keyword-analyzer'
 
 interface AnalysisResponse {
@@ -105,7 +108,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       newsAndBlog: {},
       trendData: {},
       monthlyTrendData: {},
-      seasonalityAnalysis: {}
+      seasonalityAnalysis: {},
+      competitors: {}
     }
 
     for (const p of portalsToAnalyze) {
@@ -140,6 +144,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
       analysis.monthlyTrendData[p] = monthlyTrend
       analysis.seasonalityAnalysis[p] = seasonality
+
+      // 경쟁사 분석 추가
+      const competitors = analyzeCompetitors(keyword, p)
+      const competitorKeywords = relatedKeywords.map(k => k.keyword)
+      const competitionIntensity = calculateCompetitionIntensity(competitorKeywords, competitors)
+
+      analysis.competitors[p] = {
+        list: competitors,
+        competitionIntensity,
+        summary: {
+          totalCompetitors: competitors.length,
+          averageCompetitorStrength: Math.round(competitors.reduce((sum, c) => sum + c.competitorStrength, 0) / competitors.length),
+          highRiskKeywordCount: competitors.reduce(
+            (sum, c) => sum + c.dominantKeywords.filter(k => k.difficulty > 70).length,
+            0
+          ),
+          opportunityCount: competitors.reduce((sum, c) => sum + c.opportunityKeywords.length, 0)
+        }
+      }
     }
 
     return res.status(200).json({ success: true, keyword: keyword, analysis: analysis })

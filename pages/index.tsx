@@ -205,6 +205,16 @@ export default function Home() {
                   📰 뉴스/블로그
                 </button>
                 <button
+                  onClick={() => setActiveTab('competitors')}
+                  className={`pb-4 px-2 font-semibold transition whitespace-nowrap ${
+                    activeTab === 'competitors'
+                      ? 'text-emerald-400 border-b-2 border-emerald-400'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  🏆 경쟁사 분석
+                </button>
+                <button
                   onClick={() => setActiveTab('recommendations')}
                   className={`pb-4 px-2 font-semibold transition whitespace-nowrap ${
                     activeTab === 'recommendations'
@@ -492,6 +502,118 @@ export default function Home() {
                       </div>
                     ) : null
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* 경쟁사 분석 탭 */}
+            {activeTab === 'competitors' && analysis && (
+              <div className="space-y-8">
+                <h2 className="text-3xl font-bold mb-8">
+                  '{keyword}' 경쟁사 분석
+                </h2>
+
+                {/* 포털별 경쟁 요약 */}
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                  {Object.entries(analysis.analysis?.competitors || {}).map(([portal, data]: [string, any]) => (
+                    <div key={portal} className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6">
+                      <h3 className="text-emerald-400 font-bold text-lg mb-6 border-b border-slate-700 pb-4">
+                        {portal}
+                      </h3>
+
+                      {/* 경쟁 강도 */}
+                      <div className="mb-4">
+                        <span className="text-slate-400 text-sm">경쟁 강도</span>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="flex-1 bg-slate-700 rounded-full h-2">
+                            <div
+                              className={`h-2 rounded-full ${
+                                data.competitionIntensity > 70
+                                  ? 'bg-red-500'
+                                  : data.competitionIntensity > 40
+                                  ? 'bg-yellow-500'
+                                  : 'bg-emerald-500'
+                              }`}
+                              style={{ width: `${Math.min(data.competitionIntensity, 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-white font-bold text-sm">
+                            {data.competitionIntensity}%
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 요약 통계 */}
+                      <div className="space-y-2 text-sm pt-4 border-t border-slate-700">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">경쟁사 수</span>
+                          <span className="text-white font-bold">{data.summary?.totalCompetitors}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">평균 강도</span>
+                          <span className="text-cyan-400 font-bold">{data.summary?.averageCompetitorStrength}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">기회 키워드</span>
+                          <span className="text-emerald-400 font-bold">{data.summary?.opportunityCount}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 상세 경쟁사 분석 */}
+                <div className="space-y-6">
+                  {Object.entries(analysis.analysis?.competitors || {}).map(([portal, data]: [string, any]) => (
+                    <div key={`${portal}-detail`} className="space-y-6">
+                      <h3 className="text-2xl font-bold text-emerald-400 mt-8 mb-6">{portal} 경쟁사 상세 분석</h3>
+
+                      {data.list?.map((competitor: any, idx: number) => (
+                        <div key={idx} className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6">
+                          <div className="flex justify-between items-start mb-6">
+                            <h4 className="text-lg font-bold">{competitor.name}</h4>
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-400 text-sm">강도</span>
+                              <span className="bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full font-bold">
+                                {competitor.competitorStrength}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* 경쟁사 주요 키워드 */}
+                          <div className="mb-6">
+                            <h5 className="text-emerald-400 font-semibold mb-3">🎯 주요 키워드 (Top 5)</h5>
+                            <div className="space-y-2">
+                              {competitor.dominantKeywords?.map((kw: any, kidx: number) => (
+                                <div key={kidx} className="flex justify-between items-center bg-slate-800/50 px-3 py-2 rounded">
+                                  <span className="text-white text-sm">{kw.keyword}</span>
+                                  <div className="flex gap-2">
+                                    <span className="text-cyan-400 text-xs">난이도: {kw.difficulty}</span>
+                                    <span className="text-emerald-400 text-xs font-bold">{kw.score.toFixed(0)}점</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* 기회 키워드 */}
+                          {competitor.opportunityKeywords?.length > 0 && (
+                            <div>
+                              <h5 className="text-cyan-400 font-semibold mb-3">💡 기회 키워드</h5>
+                              <div className="space-y-2">
+                                {competitor.opportunityKeywords?.map((kw: any, kidx: number) => (
+                                  <div key={kidx} className="flex justify-between items-center bg-cyan-500/10 px-3 py-2 rounded border border-cyan-500/30">
+                                    <span className="text-white text-sm">{kw.keyword}</span>
+                                    <span className="text-cyan-400 text-xs font-bold">{kw.searchVolume?.toLocaleString()}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
