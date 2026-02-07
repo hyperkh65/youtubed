@@ -185,6 +185,16 @@ export default function Home() {
                   📊 분석 결과
                 </button>
                 <button
+                  onClick={() => setActiveTab('intent')}
+                  className={`pb-4 px-2 font-semibold transition whitespace-nowrap ${
+                    activeTab === 'intent'
+                      ? 'text-emerald-400 border-b-2 border-emerald-400'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  🎯 검색 의도
+                </button>
+                <button
                   onClick={() => setActiveTab('trends')}
                   className={`pb-4 px-2 font-semibold transition whitespace-nowrap ${
                     activeTab === 'trends'
@@ -230,6 +240,42 @@ export default function Home() {
             {/* 분석 결과 탭 */}
             {activeTab === 'analysis' && analysis && (
               <div className="space-y-8">
+                {/* 종합 요약 */}
+                {analysis.analysis?.summary && (
+                  <div className="bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 border border-emerald-500/40 rounded-xl p-6 mb-8">
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className="text-4xl">{analysis.analysis.summary.recommendation.split(' ')[0]}</div>
+                      <div className="flex-1">
+                        <h3 className="text-xl font-bold mb-2">
+                          {analysis.analysis.summary.recommendation}
+                        </h3>
+                        <p className="text-slate-400 text-sm">
+                          종합 점수: <span className="text-emerald-400 font-bold">{analysis.analysis.summary.overallScore}/100</span>
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-slate-300 mb-4">{analysis.analysis.keywordAnalysis.type.toUpperCase()} 키워드</p>
+                    <div className="grid md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-emerald-400 font-semibold mb-2">💪 강점</p>
+                        <ul className="space-y-1 text-slate-300">
+                          {analysis.analysis.summary.strengths?.map((s: string, i: number) => (
+                            <li key={i}>✓ {s}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="text-cyan-400 font-semibold mb-2">⚠️ 약점</p>
+                        <ul className="space-y-1 text-slate-300">
+                          {analysis.analysis.summary.weaknesses?.map((w: string, i: number) => (
+                            <li key={i}>✗ {w}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <h2 className="text-3xl font-bold mb-8">
                   '{keyword}' 분석 결과
                 </h2>
@@ -289,6 +335,112 @@ export default function Home() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* 검색 의도 분석 탭 */}
+            {activeTab === 'intent' && analysis && (
+              <div className="space-y-8">
+                <h2 className="text-3xl font-bold mb-8">
+                  '{keyword}' 검색 의도 분석
+                </h2>
+
+                {analysis.analysis?.searchIntent && (
+                  <div className="space-y-6">
+                    {/* 검색 의도 카드 */}
+                    <div className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-8">
+                      <div className="mb-8">
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="text-6xl">
+                            {analysis.analysis.searchIntent.intent === 'informational' && '📚'}
+                            {analysis.analysis.searchIntent.intent === 'navigational' && '🧭'}
+                            {analysis.analysis.searchIntent.intent === 'commercial' && '🛍️'}
+                            {analysis.analysis.searchIntent.intent === 'transactional' && '💳'}
+                          </div>
+                          <div>
+                            <h3 className="text-3xl font-bold capitalize">
+                              {analysis.analysis.searchIntent.intent}
+                            </h3>
+                            <p className="text-slate-400">
+                              신뢰도: <span className="text-emerald-400 font-bold">{analysis.analysis.searchIntent.confidence}%</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <p className="text-lg text-slate-300 mb-4">
+                          {analysis.analysis.searchIntent.recommendedApproach}
+                        </p>
+
+                        {/* 검색 의도 설명 */}
+                        <div className="grid md:grid-cols-2 gap-6 pt-6 border-t border-slate-700">
+                          <div>
+                            <h4 className="text-emerald-400 font-semibold mb-3">📌 주요 특징</h4>
+                            <ul className="space-y-2">
+                              {analysis.analysis.searchIntent.keyCharacteristics?.map((char: string, idx: number) => (
+                                <li key={idx} className="text-slate-300 flex items-center gap-2">
+                                  <span className="text-emerald-400">▸</span> {char}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          <div>
+                            <h4 className="text-cyan-400 font-semibold mb-3">📝 추천 콘텐츠 형식</h4>
+                            <ul className="space-y-2">
+                              {analysis.analysis.searchIntent.bestContentFormats?.map((format: string, idx: number) => (
+                                <li key={idx} className="text-slate-300 flex items-center gap-2">
+                                  <span className="text-cyan-400">▸</span> {format}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 다음 단계 */}
+                      {analysis.analysis?.summary?.nextSteps && (
+                        <div className="mt-8 pt-6 border-t border-slate-700">
+                          <h4 className="text-emerald-400 font-semibold mb-4">🚀 다음 단계</h4>
+                          <ol className="space-y-3">
+                            {analysis.analysis.summary.nextSteps.map((step: string, idx: number) => (
+                              <li key={idx} className="text-slate-300 flex gap-3">
+                                <span className="text-emerald-400 font-bold min-w-fit">{idx + 1}.</span>
+                                {step}
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
+
+                      {/* 기회와 위험 */}
+                      {analysis.analysis?.summary && (
+                        <div className="grid md:grid-cols-2 gap-6 mt-8 pt-6 border-t border-slate-700">
+                          <div>
+                            <h4 className="text-emerald-400 font-semibold mb-3">🎯 기회</h4>
+                            <ul className="space-y-2">
+                              {analysis.analysis.summary.opportunities?.map((opp: string, idx: number) => (
+                                <li key={idx} className="text-slate-300 text-sm flex items-center gap-2">
+                                  <span className="text-emerald-400">✓</span> {opp}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          <div>
+                            <h4 className="text-red-400 font-semibold mb-3">⚠️ 위험</h4>
+                            <ul className="space-y-2">
+                              {analysis.analysis.summary.risks?.map((risk: string, idx: number) => (
+                                <li key={idx} className="text-slate-300 text-sm flex items-center gap-2">
+                                  <span className="text-red-400">✗</span> {risk}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

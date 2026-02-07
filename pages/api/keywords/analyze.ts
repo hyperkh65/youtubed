@@ -12,11 +12,15 @@ import {
   analyzeSeasonality,
   analyzeCompetitors,
   calculateCompetitionIntensity,
+  analyzeSearchIntent,
+  generateAnalysisSummary,
   type NewsAndBlogData,
   type TrendDataPoint,
   type MonthlyTrendData,
   type SeasonalityAnalysis,
-  type CompetitorAnalysis
+  type CompetitorAnalysis,
+  type SearchIntentAnalysis,
+  type KeywordAnalysisSummary
 } from '@/lib/keyword-analyzer'
 
 interface AnalysisResponse {
@@ -92,9 +96,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     const keywordMetrics = calculateKeywordMetrics(keyword, 100000)
     const relatedKeywords = generateRelatedKeywords(keyword, portal)
 
+    // 검색 의도 분석
+    const searchIntent = analyzeSearchIntent(keyword)
+
     const analysis: any = {
       keyword: keyword,
       timestamp: new Date().toISOString(),
+      searchIntent: searchIntent,
       keywordAnalysis: {
         type: keywordType,
         wordCount: keywordMetrics.wordCount,
@@ -109,7 +117,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       trendData: {},
       monthlyTrendData: {},
       seasonalityAnalysis: {},
-      competitors: {}
+      competitors: {},
+      summary: null as any
     }
 
     for (const p of portalsToAnalyze) {
@@ -164,6 +173,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         }
       }
     }
+
+    // 종합 분석 요약 생성 (첫 번째 포털 기준)
+    const primaryPortal = portalsToAnalyze[0]
+    const primarySeasonality = analysis.seasonalityAnalysis[primaryPortal]
+    const primaryCompetitors = analysis.competitors[primaryPortal]?.list || []
+
+    analysis.summary = generateAnalysisSummary(
+      keyword,
+      keywordType,
+      keywordMetrics,
+      primarySeasonality || { peakMonths: [], lowMonths: [], averageSearches: 0, peakValue: 0, lowestValue: 0, recommendedPostingTimes: [], volatility: 0 },
+      primaryCompetitors,
+      searchIntent
+    )
 
     return res.status(200).json({ success: true, keyword: keyword, analysis: analysis })
   } catch (error) {
