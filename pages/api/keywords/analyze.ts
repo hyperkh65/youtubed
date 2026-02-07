@@ -8,8 +8,12 @@ import {
   generateNewsAndBlogData,
   generateTrendData,
   calculateNewsAndBlogScore,
+  generate12MonthTrendData,
+  analyzeSeasonality,
   type NewsAndBlogData,
-  type TrendDataPoint
+  type TrendDataPoint,
+  type MonthlyTrendData,
+  type SeasonalityAnalysis
 } from '@/lib/keyword-analyzer'
 
 interface AnalysisResponse {
@@ -99,7 +103,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       advancedRelatedKeywords: relatedKeywords,
       portals: {},
       newsAndBlog: {},
-      trendData: {}
+      trendData: {},
+      monthlyTrendData: {},
+      seasonalityAnalysis: {}
     }
 
     for (const p of portalsToAnalyze) {
@@ -127,6 +133,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       }
 
       analysis.trendData[p] = trendData
+
+      // 12개월 트렌드 데이터 및 계절성 분석 추가
+      const monthlyTrend = generate12MonthTrendData(keyword, p)
+      const seasonality = analyzeSeasonality(monthlyTrend)
+
+      analysis.monthlyTrendData[p] = monthlyTrend
+      analysis.seasonalityAnalysis[p] = seasonality
     }
 
     return res.status(200).json({ success: true, keyword: keyword, analysis: analysis })

@@ -1,6 +1,9 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Head from 'next/head'
 import axios from 'axios'
+import dynamic from 'next/dynamic'
+
+const Plot = dynamic(() => import('react-plotly.js'), { ssr: false })
 
 const TRENDING_KEYWORDS = [
   { keyword: '유튜브 SEO', trend: 'rising', volume: 45000 },
@@ -182,6 +185,16 @@ export default function Home() {
                   📊 분석 결과
                 </button>
                 <button
+                  onClick={() => setActiveTab('trends')}
+                  className={`pb-4 px-2 font-semibold transition whitespace-nowrap ${
+                    activeTab === 'trends'
+                      ? 'text-emerald-400 border-b-2 border-emerald-400'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  📈 트렌드 분석
+                </button>
+                <button
                   onClick={() => setActiveTab('newsblog')}
                   className={`pb-4 px-2 font-semibold transition whitespace-nowrap ${
                     activeTab === 'newsblog'
@@ -266,6 +279,109 @@ export default function Home() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* 트렌드 분석 탭 */}
+            {activeTab === 'trends' && analysis && (
+              <div className="space-y-8">
+                <h2 className="text-3xl font-bold mb-8">
+                  '{keyword}' 12개월 트렌드 분석
+                </h2>
+
+                {/* 포털별 트렌드 분석 */}
+                {Object.entries(analysis.analysis?.monthlyTrendData || {}).map(([portal, monthlyData]: [string, any]) => {
+                  const seasonality = analysis.analysis?.seasonalityAnalysis?.[portal]
+
+                  // 월별 검색량 차트 데이터
+                  const monthlyChartData = {
+                    x: monthlyData.map((d: any) => d.date),
+                    y: monthlyData.map((d: any) => d.searches),
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: '검색량',
+                    line: { color: '#10b981', width: 3 },
+                    marker: { size: 6 }
+                  }
+
+                  // 계절성 지수 차트
+                  const seasonalityChartData = {
+                    x: monthlyData.map((d: any) => d.date),
+                    y: monthlyData.map((d: any) => d.seasonalityIndex),
+                    type: 'bar',
+                    name: '계절성 지수',
+                    marker: {
+                      color: monthlyData.map((d: any) =>
+                        d.seasonalityIndex > 110
+                          ? '#06b6d4'
+                          : d.seasonalityIndex < 90
+                          ? '#ef4444'
+                          : '#6b7280'
+                      )
+                    }
+                  }
+
+                  return (
+                    <div key={portal} className="space-y-6">
+                      <div className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6">
+                        <h3 className="text-emerald-400 font-bold text-lg mb-6">{portal} - 월별 검색량 트렌드</h3>
+                        <div className="bg-slate-800/50 rounded-lg p-4 mb-6 overflow-x-auto">
+                          <svg viewBox="0 0 800 300" className="w-full" style={{ minHeight: '300px' }}>
+                            {/* 간단한 라인 차트 대체 */}
+                            <text x="10" y="30" fill="#94a3b8" fontSize="14">
+                              📈 12개월 트렌드: {seasonality?.averageSearches.toLocaleString()} 평균 검색량
+                            </text>
+                            <text x="10" y="60" fill="#10b981" fontSize="14" fontWeight="bold">
+                              🔝 피크: {seasonality?.peakValue.toLocaleString()} ({seasonality?.peakMonths.join(', ')})
+                            </text>
+                            <text x="10" y="90" fill="#ef4444" fontSize="14" fontWeight="bold">
+                              📉 최저: {seasonality?.lowestValue.toLocaleString()} ({seasonality?.lowMonths.join(', ')})
+                            </text>
+                            <text x="10" y="120" fill="#94a3b8" fontSize="14">
+                              변동성 (표준편차): {seasonality?.volatility}
+                            </text>
+                          </svg>
+                        </div>
+
+                        {/* 계절성 분석 카드 */}
+                        <div className="grid md:grid-cols-3 gap-4">
+                          <div className="bg-slate-800/50 rounded-lg p-4">
+                            <h4 className="text-emerald-400 font-semibold mb-3">📈 피크 시즌</h4>
+                            <div className="space-y-2">
+                              {seasonality?.peakMonths.map((month: string) => (
+                                <div key={month} className="text-white text-sm font-semibold">
+                                  {month}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-800/50 rounded-lg p-4">
+                            <h4 className="text-cyan-400 font-semibold mb-3">📉 저점 시즌</h4>
+                            <div className="space-y-2">
+                              {seasonality?.lowMonths.map((month: string) => (
+                                <div key={month} className="text-white text-sm font-semibold">
+                                  {month}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-800/50 rounded-lg p-4">
+                            <h4 className="text-emerald-300 font-semibold mb-3">⏰ 추천 포스팅 시기</h4>
+                            <div className="space-y-2">
+                              {seasonality?.recommendedPostingTimes.map((time: string) => (
+                                <div key={time} className="text-white text-sm font-semibold">
+                                  {time}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
 
