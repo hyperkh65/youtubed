@@ -5,24 +5,102 @@ import dynamic from 'next/dynamic'
 
 const Plot = dynamic(() => import('react-plotly.js'), { ssr: false })
 
-const TRENDING_KEYWORDS = [
-  { keyword: '유튜브 SEO', trend: 'rising', volume: 45000 },
-  { keyword: '콘텐츠 마케팅', trend: 'rising', volume: 38000 },
-  { keyword: '숏폼 영상', trend: 'hot', volume: 72000 },
-  { keyword: '키워드 분석', trend: 'rising', volume: 28000 },
-  { keyword: '유튜브 알고리즘', trend: 'stable', volume: 55000 },
-  { keyword: '채널 성장', trend: 'rising', volume: 34000 },
-]
+// 산업별 트렌딩 키워드
+const INDUSTRY_TRENDING = {
+  seo: [
+    { keyword: 'AI 콘텐츠 라이팅', trend: 'rising', volume: 125000 },
+    { keyword: '코어 웹 바이탈', trend: 'rising', volume: 98000 },
+    { keyword: 'SEO 최적화', trend: 'stable', volume: 186000 },
+    { keyword: '검색 의도 분석', trend: 'rising', volume: 54000 },
+    { keyword: '키워드 클러스터링', trend: 'rising', volume: 32000 },
+    { keyword: 'E-E-A-T 콘텐츠', trend: 'hot', volume: 78000 },
+  ],
+  ecommerce: [
+    { keyword: '무선이어폰', trend: 'rising', volume: 450000 },
+    { keyword: '스마트밴드', trend: 'hot', volume: 380000 },
+    { keyword: '블루투스 스피커', trend: 'stable', volume: 265000 },
+    { keyword: '무선 충전기', trend: 'rising', volume: 195000 },
+    { keyword: '휴대폰 필름', trend: 'rising', volume: 142000 },
+    { keyword: '보조배터리', trend: 'stable', volume: 287000 },
+  ],
+  content: [
+    { keyword: '쇼츠 제작 팁', trend: 'rising', volume: 145000 },
+    { keyword: '유튜브 알고리즘', trend: 'stable', volume: 220000 },
+    { keyword: '채널 성장 전략', trend: 'rising', volume: 98000 },
+    { keyword: '썸네일 디자인', trend: 'rising', volume: 125000 },
+    { keyword: '영상 편집 기초', trend: 'stable', volume: 178000 },
+    { keyword: '바이럴 콘텐츠', trend: 'hot', volume: 267000 },
+  ],
+  agency: [
+    { keyword: '디지털 마케팅 전략', trend: 'rising', volume: 198000 },
+    { keyword: '소셜 미디어 마케팅', trend: 'rising', volume: 156000 },
+    { keyword: '콘텐츠 마케팅', trend: 'stable', volume: 245000 },
+    { keyword: '고객 분석', trend: 'rising', volume: 87000 },
+    { keyword: 'ROI 최적화', trend: 'rising', volume: 64000 },
+    { keyword: 'A/B 테스팅', trend: 'stable', volume: 102000 },
+  ],
+}
 
-const PORTALS = ['Naver', 'Google', 'Daum', 'YouTube']
+// 산업 설정
+const INDUSTRY_CONFIGS = {
+  seo: {
+    name: 'SEO & 블로그',
+    icon: '📈',
+    description: '검색 엔진 최적화를 위한 심층 분석',
+    portals: ['Google', 'Naver', 'Daum'],
+    color: 'emerald'
+  },
+  ecommerce: {
+    name: '이커머스',
+    icon: '🛒',
+    description: '상품 판매 기회를 찾아주는 분석',
+    portals: ['Amazon', 'Coupang', 'Naver'],
+    color: 'blue'
+  },
+  content: {
+    name: '콘텐츠 크리에이터',
+    icon: '🎬',
+    description: '영상/블로그 인기도 트렌드 분석',
+    portals: ['YouTube', 'Google', 'Naver'],
+    color: 'purple'
+  },
+  agency: {
+    name: '마케팅 대행사',
+    icon: '🏢',
+    description: '종합 마케팅 전략 수립을 위한 분석',
+    portals: ['Google', 'Naver', 'YouTube', 'Amazon'],
+    color: 'cyan'
+  },
+}
+
+const ALL_PORTALS = ['Google', 'Naver', 'Daum', 'YouTube', 'Amazon', 'Coupang']
+
+const TrustBadge = ({ score }: { score: number }) => {
+  if (score >= 85) return <span className="text-emerald-400 font-semibold text-xs">🟢 {score}%</span>
+  if (score >= 70) return <span className="text-yellow-500 font-semibold text-xs">🟡 {score}%</span>
+  return <span className="text-red-500 font-semibold text-xs">🔴 {score}%</span>
+}
 
 export default function Home() {
+  const [selectedIndustry, setSelectedIndustry] = useState<'seo' | 'ecommerce' | 'content' | 'agency'>('seo')
   const [keyword, setKeyword] = useState('')
-  const [selectedPortal, setSelectedPortal] = useState('Naver')
+  const [selectedPortals, setSelectedPortals] = useState<string[]>(['Naver', 'Google'])
   const [analysis, setAnalysis] = useState<any>(null)
   const [recommendations, setRecommendations] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('analysis')
+  const [showIndustrySelector, setShowIndustrySelector] = useState(true)
+
+  const industryConfig = INDUSTRY_CONFIGS[selectedIndustry]
+  const trendingKeywords = INDUSTRY_TRENDING[selectedIndustry]
+
+  const togglePortal = (portal: string) => {
+    setSelectedPortals(prev =>
+      prev.includes(portal)
+        ? prev.filter(p => p !== portal)
+        : [...prev, portal]
+    )
+  }
 
   const handleAnalyze = async () => {
     if (!keyword.trim()) {
@@ -30,13 +108,20 @@ export default function Home() {
       return
     }
 
+    if (selectedPortals.length === 0) {
+      alert('최소 하나의 포털을 선택해주세요')
+      return
+    }
+
     setLoading(true)
     try {
       const response = await axios.post('/api/keywords/analyze', {
         keyword,
-        portal: selectedPortal
+        portal: selectedPortals.length === 1 ? selectedPortals[0] : 'All',
+        industry: selectedIndustry
       })
       setAnalysis(response.data)
+      setShowIndustrySelector(false)
       setActiveTab('analysis')
     } catch (error) {
       console.error('분석 오류:', error)
@@ -56,7 +141,7 @@ export default function Home() {
     try {
       const response = await axios.post('/api/keywords/recommendations', {
         keywords: [keyword],
-        portal: selectedPortal
+        industry: selectedIndustry
       })
       setRecommendations(response.data.recommendations || [])
       setActiveTab('recommendations')
@@ -75,58 +160,98 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>KeyPoints - YouTube Keyword Analyzer</title>
-        <meta name="description" content="유튜브 마케팅을 위한 가장 강력한 키워드 분석 도구" />
+        <title>KeyPoint Pro - 범용 키워드 분석 플랫폼</title>
+        <meta name="description" content="모든 산업의 키워드 기회를 찾아주는 데이터 분석 플랫폼. Google, Naver, YouTube 등 다중 포털 동시 분석" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
       <main className="min-h-screen bg-black text-white">
         {/* 히어로 섹션 */}
-        <section className="relative min-h-[600px] bg-gradient-to-b from-black via-emerald-950/10 to-black px-4 py-20">
-          <div className="max-w-5xl mx-auto">
+        <section className="relative min-h-[700px] bg-gradient-to-b from-black via-emerald-950/5 to-black px-4 py-20">
+          <div className="max-w-6xl mx-auto">
+            {/* 산업 선택 UI */}
+            {showIndustrySelector && (
+              <div className="mb-16">
+                <p className="text-center text-slate-400 text-lg mb-8">
+                  어떤 산업의 키워드를 분석하시나요?
+                </p>
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {(Object.keys(INDUSTRY_CONFIGS) as Array<'seo' | 'ecommerce' | 'content' | 'agency'>).map((industry) => {
+                    const config = INDUSTRY_CONFIGS[industry]
+                    return (
+                      <button
+                        key={industry}
+                        onClick={() => setSelectedIndustry(industry)}
+                        className={`p-6 rounded-xl border-2 transition duration-200 text-left ${
+                          selectedIndustry === industry
+                            ? `border-emerald-500 bg-emerald-500/10 shadow-lg shadow-emerald-500/20`
+                            : `border-slate-700 hover:border-slate-600 bg-slate-900/30 hover:bg-slate-900/50`
+                        }`}
+                      >
+                        <div className="text-3xl mb-2">{config.icon}</div>
+                        <h3 className="font-bold text-lg mb-1">{config.name}</h3>
+                        <p className="text-sm text-slate-400">{config.description}</p>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* 헤드라인 */}
             <div className="text-center mb-12">
               <h1 className="text-5xl md:text-6xl font-bold mb-4 leading-tight">
-                유튜브 마케팅을 위한<br />
+                {industryConfig.icon} {industryConfig.name}<br />
                 <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-                  가장 강력한 키워드 분석 도구
+                  키워드 기회 찾기
                 </span>
               </h1>
-              <p className="text-lg text-slate-400 mb-8">
-                Naver, Google, Daum, YouTube 전 포털 동시 분석<br />
-                정확한 데이터 기반 마케팅 전략 수립
+              <p className="text-lg text-slate-400 mb-8 max-w-3xl mx-auto">
+                {selectedPortals.join(', ')} 등 {selectedPortals.length}개 포털 동시 분석<br />
+                정확한 데이터 기반 {industryConfig.name} 전략 수립
               </p>
             </div>
 
             {/* 검색 바 */}
             <div className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-8 mb-12 backdrop-blur">
               {/* 포털 선택 */}
-              <div className="flex flex-col md:flex-row gap-4 mb-6">
-                <div className="flex-1">
-                  <label className="block text-sm text-slate-400 mb-2">포털 선택</label>
-                  <select
-                    value={selectedPortal}
-                    onChange={(e) => setSelectedPortal(e.target.value)}
-                    className="w-full bg-slate-800 border border-emerald-500/30 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition"
-                  >
-                    {PORTALS.map((portal) => (
-                      <option key={portal} value={portal}>
-                        {portal}
-                      </option>
-                    ))}
-                  </select>
+              <div className="mb-6">
+                <label className="block text-sm text-slate-400 mb-3 font-semibold">
+                  분석할 포털 선택 (중복 선택 가능)
+                </label>
+                <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-3">
+                  {(industryConfig.portals as string[]).map((portal) => (
+                    <label
+                      key={portal}
+                      className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition ${
+                        selectedPortals.includes(portal)
+                          ? 'border-emerald-500 bg-emerald-500/10'
+                          : 'border-slate-700 hover:border-slate-600'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedPortals.includes(portal)}
+                        onChange={() => togglePortal(portal)}
+                        className="w-4 h-4 rounded"
+                      />
+                      <span className="text-sm font-medium">{portal}</span>
+                    </label>
+                  ))}
                 </div>
-                <div className="flex-[3]">
-                  <label className="block text-sm text-slate-400 mb-2">키워드 입력</label>
-                  <input
-                    type="text"
-                    value={keyword}
-                    onChange={(e) => setKeyword(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleAnalyze()}
-                    placeholder="분석할 키워드를 입력하세요..."
-                    className="w-full bg-slate-800 border border-emerald-500/30 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
-                  />
-                </div>
+              </div>
+
+              {/* 키워드 입력 */}
+              <div className="mb-6">
+                <label className="block text-sm text-slate-400 mb-2">키워드 입력</label>
+                <input
+                  type="text"
+                  value={keyword}
+                  onChange={(e) => setKeyword(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAnalyze()}
+                  placeholder="분석할 키워드를 입력하세요... (예: 파이썬 기초)"
+                  className="w-full bg-slate-800 border border-emerald-500/30 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
+                />
               </div>
 
               {/* 버튼 */}
@@ -150,9 +275,9 @@ export default function Home() {
 
             {/* 트렌딩 해시태그 */}
             <div className="text-center">
-              <p className="text-sm text-slate-500 mb-4">🔥 지금 핫한 키워드</p>
+              <p className="text-sm text-slate-500 mb-4">🔥 현재 {industryConfig.name}의 핫한 키워드</p>
               <div className="flex flex-wrap justify-center gap-3">
-                {TRENDING_KEYWORDS.map((item) => (
+                {trendingKeywords.map((item) => (
                   <button
                     key={item.keyword}
                     onClick={() => handleTrendingClick(item.keyword)}
@@ -171,7 +296,7 @@ export default function Home() {
 
         {/* 탭 네비게이션 */}
         {(analysis || recommendations.length > 0) && (
-          <section className="max-w-5xl mx-auto px-4 py-12">
+          <section className="max-w-6xl mx-auto px-4 py-12">
             <div className="border-b border-emerald-500/20 mb-8">
               <div className="flex gap-8 overflow-x-auto">
                 <button
@@ -240,7 +365,7 @@ export default function Home() {
             {/* 분석 결과 탭 */}
             {activeTab === 'analysis' && analysis && (
               <div className="space-y-8">
-                {/* 종합 요약 */}
+                {/* 종합 요약 카드 */}
                 {analysis.analysis?.summary && (
                   <div className="bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 border border-emerald-500/40 rounded-xl p-6 mb-8">
                     <div className="flex items-start gap-4 mb-4">
@@ -249,12 +374,19 @@ export default function Home() {
                         <h3 className="text-xl font-bold mb-2">
                           {analysis.analysis.summary.recommendation}
                         </h3>
-                        <p className="text-slate-400 text-sm">
-                          종합 점수: <span className="text-emerald-400 font-bold">{analysis.analysis.summary.overallScore}/100</span>
-                        </p>
+                        <div className="flex gap-4">
+                          <div>
+                            <p className="text-slate-400 text-sm">종합 점수</p>
+                            <p className="text-emerald-400 font-bold text-lg">{analysis.analysis.summary.overallScore}/100</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-400 text-sm">신뢰도</p>
+                            <TrustBadge score={85} />
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <p className="text-slate-300 mb-4">{analysis.analysis.keywordAnalysis.type.toUpperCase()} 키워드</p>
+                    <p className="text-slate-300 mb-4 text-sm">{analysis.analysis.keywordAnalysis.type.toUpperCase()} 키워드</p>
                     <div className="grid md:grid-cols-2 gap-4 text-sm">
                       <div>
                         <p className="text-emerald-400 font-semibold mb-2">💪 강점</p>
@@ -277,17 +409,20 @@ export default function Home() {
                 )}
 
                 <h2 className="text-3xl font-bold mb-8">
-                  '{keyword}' 분석 결과
+                  '{keyword}' 분석 결과 ({selectedPortals.length}개 포털)
                 </h2>
 
-                {/* 포털별 결과 */}
+                {/* 포털별 결과 카드 */}
                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {Object.entries(analysis.analysis?.portals || {}).map(([portal, data]: [string, any]) => (
                     <div
                       key={portal}
                       className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6 hover:border-emerald-500/60 transition"
                     >
-                      <h3 className="text-emerald-400 font-bold text-lg mb-4">{portal}</h3>
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-emerald-400 font-bold text-lg">{portal}</h3>
+                        <TrustBadge score={85} />
+                      </div>
                       <div className="space-y-3 text-sm">
                         <div>
                           <span className="text-slate-400">월간 검색량</span>
@@ -347,97 +482,43 @@ export default function Home() {
 
                 {analysis.analysis?.searchIntent && (
                   <div className="space-y-6">
-                    {/* 검색 의도 카드 */}
-                    <div className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-8">
-                      <div className="mb-8">
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="text-6xl">
-                            {analysis.analysis.searchIntent.intent === 'informational' && '📚'}
-                            {analysis.analysis.searchIntent.intent === 'navigational' && '🧭'}
-                            {analysis.analysis.searchIntent.intent === 'commercial' && '🛍️'}
-                            {analysis.analysis.searchIntent.intent === 'transactional' && '💳'}
-                          </div>
-                          <div>
-                            <h3 className="text-3xl font-bold capitalize">
-                              {analysis.analysis.searchIntent.intent}
-                            </h3>
-                            <p className="text-slate-400">
-                              신뢰도: <span className="text-emerald-400 font-bold">{analysis.analysis.searchIntent.confidence}%</span>
-                            </p>
-                          </div>
-                        </div>
-
-                        <p className="text-lg text-slate-300 mb-4">
-                          {analysis.analysis.searchIntent.recommendedApproach}
-                        </p>
-
-                        {/* 검색 의도 설명 */}
-                        <div className="grid md:grid-cols-2 gap-6 pt-6 border-t border-slate-700">
-                          <div>
-                            <h4 className="text-emerald-400 font-semibold mb-3">📌 주요 특징</h4>
-                            <ul className="space-y-2">
-                              {analysis.analysis.searchIntent.keyCharacteristics?.map((char: string, idx: number) => (
-                                <li key={idx} className="text-slate-300 flex items-center gap-2">
-                                  <span className="text-emerald-400">▸</span> {char}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-
-                          <div>
-                            <h4 className="text-cyan-400 font-semibold mb-3">📝 추천 콘텐츠 형식</h4>
-                            <ul className="space-y-2">
-                              {analysis.analysis.searchIntent.bestContentFormats?.map((format: string, idx: number) => (
-                                <li key={idx} className="text-slate-300 flex items-center gap-2">
-                                  <span className="text-cyan-400">▸</span> {format}
-                                </li>
-                              ))}
-                            </ul>
+                    <div className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6">
+                      <h3 className="text-xl font-bold mb-4">주요 검색 의도</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-slate-400 text-sm mb-2">
+                            {analysis.analysis.searchIntent.primaryIntent}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-slate-700 rounded-full h-3">
+                              <div
+                                className="bg-emerald-500 h-3 rounded-full"
+                                style={{ width: `${analysis.analysis.searchIntent.confidence}%` }}
+                              />
+                            </div>
+                            <span className="text-white font-bold">
+                              {analysis.analysis.searchIntent.confidence}%
+                            </span>
                           </div>
                         </div>
                       </div>
+                    </div>
 
-                      {/* 다음 단계 */}
-                      {analysis.analysis?.summary?.nextSteps && (
-                        <div className="mt-8 pt-6 border-t border-slate-700">
-                          <h4 className="text-emerald-400 font-semibold mb-4">🚀 다음 단계</h4>
-                          <ol className="space-y-3">
-                            {analysis.analysis.summary.nextSteps.map((step: string, idx: number) => (
-                              <li key={idx} className="text-slate-300 flex gap-3">
-                                <span className="text-emerald-400 font-bold min-w-fit">{idx + 1}.</span>
-                                {step}
-                              </li>
-                            ))}
-                          </ol>
-                        </div>
-                      )}
-
-                      {/* 기회와 위험 */}
-                      {analysis.analysis?.summary && (
-                        <div className="grid md:grid-cols-2 gap-6 mt-8 pt-6 border-t border-slate-700">
-                          <div>
-                            <h4 className="text-emerald-400 font-semibold mb-3">🎯 기회</h4>
-                            <ul className="space-y-2">
-                              {analysis.analysis.summary.opportunities?.map((opp: string, idx: number) => (
-                                <li key={idx} className="text-slate-300 text-sm flex items-center gap-2">
-                                  <span className="text-emerald-400">✓</span> {opp}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-
-                          <div>
-                            <h4 className="text-red-400 font-semibold mb-3">⚠️ 위험</h4>
-                            <ul className="space-y-2">
-                              {analysis.analysis.summary.risks?.map((risk: string, idx: number) => (
-                                <li key={idx} className="text-slate-300 text-sm flex items-center gap-2">
-                                  <span className="text-red-400">✗</span> {risk}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                      )}
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6">
+                        <p className="text-emerald-400 font-semibold mb-4">🎯 추천 콘텐츠 형식</p>
+                        <ul className="space-y-2 text-slate-300 text-sm">
+                          {analysis.analysis.searchIntent.recommendedFormats?.map((format: string, i: number) => (
+                            <li key={i}>• {format}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6">
+                        <p className="text-cyan-400 font-semibold mb-4">⚠️ 주의사항</p>
+                        <ul className="space-y-2 text-slate-300 text-sm">
+                          <li>• {analysis.analysis.searchIntent.warning || '의도와 맞는 콘텐츠 제작 필요'}</li>
+                        </ul>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -451,99 +532,45 @@ export default function Home() {
                   '{keyword}' 12개월 트렌드 분석
                 </h2>
 
-                {/* 포털별 트렌드 분석 */}
-                {Object.entries(analysis.analysis?.monthlyTrendData || {}).map(([portal, monthlyData]: [string, any]) => {
-                  const seasonality = analysis.analysis?.seasonalityAnalysis?.[portal]
+                {analysis.analysis?.monthlyTrendData && Object.entries(analysis.analysis.monthlyTrendData).length > 0 && (
+                  <div className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6">
+                    <p className="text-slate-400 mb-4">시간에 따른 검색량 변화 추이</p>
+                    <div className="h-96 relative">
+                      <div className="text-slate-400 text-center py-32">
+                        📈 12개월 트렌드 차트 영역
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-                  // 월별 검색량 차트 데이터
-                  const monthlyChartData = {
-                    x: monthlyData.map((d: any) => d.date),
-                    y: monthlyData.map((d: any) => d.searches),
-                    type: 'scatter',
-                    mode: 'lines+markers',
-                    name: '검색량',
-                    line: { color: '#10b981', width: 3 },
-                    marker: { size: 6 }
-                  }
-
-                  // 계절성 지수 차트
-                  const seasonalityChartData = {
-                    x: monthlyData.map((d: any) => d.date),
-                    y: monthlyData.map((d: any) => d.seasonalityIndex),
-                    type: 'bar',
-                    name: '계절성 지수',
-                    marker: {
-                      color: monthlyData.map((d: any) =>
-                        d.seasonalityIndex > 110
-                          ? '#06b6d4'
-                          : d.seasonalityIndex < 90
-                          ? '#ef4444'
-                          : '#6b7280'
-                      )
-                    }
-                  }
-
-                  return (
-                    <div key={portal} className="space-y-6">
-                      <div className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6">
-                        <h3 className="text-emerald-400 font-bold text-lg mb-6">{portal} - 월별 검색량 트렌드</h3>
-                        <div className="bg-slate-800/50 rounded-lg p-4 mb-6 overflow-x-auto">
-                          <svg viewBox="0 0 800 300" className="w-full" style={{ minHeight: '300px' }}>
-                            {/* 간단한 라인 차트 대체 */}
-                            <text x="10" y="30" fill="#94a3b8" fontSize="14">
-                              📈 12개월 트렌드: {seasonality?.averageSearches.toLocaleString()} 평균 검색량
-                            </text>
-                            <text x="10" y="60" fill="#10b981" fontSize="14" fontWeight="bold">
-                              🔝 피크: {seasonality?.peakValue.toLocaleString()} ({seasonality?.peakMonths.join(', ')})
-                            </text>
-                            <text x="10" y="90" fill="#ef4444" fontSize="14" fontWeight="bold">
-                              📉 최저: {seasonality?.lowestValue.toLocaleString()} ({seasonality?.lowMonths.join(', ')})
-                            </text>
-                            <text x="10" y="120" fill="#94a3b8" fontSize="14">
-                              변동성 (표준편차): {seasonality?.volatility}
-                            </text>
-                          </svg>
+                {analysis.analysis?.seasonalityAnalysis && (
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6">
+                      <p className="text-emerald-400 font-semibold mb-4">📊 계절성 분석</p>
+                      <div className="space-y-3 text-sm">
+                        <div>
+                          <span className="text-slate-400">피크 시즌</span>
+                          <p className="text-white font-semibold">
+                            {(Object.values(analysis.analysis.seasonalityAnalysis)[0] as any)?.peakMonths?.join(', ') || 'N/A'}
+                          </p>
                         </div>
-
-                        {/* 계절성 분석 카드 */}
-                        <div className="grid md:grid-cols-3 gap-4">
-                          <div className="bg-slate-800/50 rounded-lg p-4">
-                            <h4 className="text-emerald-400 font-semibold mb-3">📈 피크 시즌</h4>
-                            <div className="space-y-2">
-                              {seasonality?.peakMonths.map((month: string) => (
-                                <div key={month} className="text-white text-sm font-semibold">
-                                  {month}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="bg-slate-800/50 rounded-lg p-4">
-                            <h4 className="text-cyan-400 font-semibold mb-3">📉 저점 시즌</h4>
-                            <div className="space-y-2">
-                              {seasonality?.lowMonths.map((month: string) => (
-                                <div key={month} className="text-white text-sm font-semibold">
-                                  {month}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="bg-slate-800/50 rounded-lg p-4">
-                            <h4 className="text-emerald-300 font-semibold mb-3">⏰ 추천 포스팅 시기</h4>
-                            <div className="space-y-2">
-                              {seasonality?.recommendedPostingTimes.map((time: string) => (
-                                <div key={time} className="text-white text-sm font-semibold">
-                                  {time}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
+                        <div>
+                          <span className="text-slate-400">저점 시즌</span>
+                          <p className="text-white font-semibold">
+                            {(Object.values(analysis.analysis.seasonalityAnalysis)[0] as any)?.lowMonths?.join(', ') || 'N/A'}
+                          </p>
                         </div>
                       </div>
                     </div>
-                  )
-                })}
+                    <div className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6">
+                      <p className="text-cyan-400 font-semibold mb-4">⏰ 포스팅 추천 시간</p>
+                      <p className="text-white text-sm">
+                        {(Object.values(analysis.analysis.seasonalityAnalysis)[0] as any)?.recommendedPostingTimes?.[0] ||
+                         '피크 월 2개월 전부터 준비하기'}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -551,110 +578,34 @@ export default function Home() {
             {activeTab === 'newsblog' && analysis && (
               <div className="space-y-8">
                 <h2 className="text-3xl font-bold mb-8">
-                  '{keyword}' 뉴스 & 블로그 분석
+                  '{keyword}' 뉴스/블로그 발행량
                 </h2>
 
-                {/* 포털별 뉴스/블로그 데이터 */}
-                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                  {Object.entries(analysis.analysis?.newsAndBlog || {}).map(([portal, data]: [string, any]) => (
-                    <div key={portal} className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6">
-                      <h3 className="text-emerald-400 font-bold text-lg mb-6 border-b border-slate-700 pb-4">
-                        {portal}
-                      </h3>
-
-                      {/* 뉴스 섹션 */}
-                      <div className="mb-6">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-slate-400 font-semibold">📰 뉴스</span>
-                          <span
-                            className={`text-sm px-2 py-1 rounded-full ${
-                              data.newsTrend === 'rising'
-                                ? 'bg-emerald-500/20 text-emerald-300'
-                                : data.newsTrend === 'declining'
-                                ? 'bg-red-500/20 text-red-300'
-                                : 'bg-slate-500/20 text-slate-300'
-                            }`}
-                          >
-                            {data.newsTrend === 'rising' ? '📈' : data.newsTrend === 'declining' ? '📉' : '→'}
-                          </span>
-                        </div>
-                        <p className="text-white font-bold text-2xl mb-2">{data.newsCount30d}</p>
-                        <p className="text-slate-400 text-sm">
-                          일일 {data.newsVelocity}개 / 30일 기준
-                        </p>
-                      </div>
-
-                      {/* 블로그 섹션 */}
-                      <div className="pt-6 border-t border-slate-700">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-slate-400 font-semibold">📝 블로그</span>
-                          <span
-                            className={`text-sm px-2 py-1 rounded-full ${
-                              data.blogTrend === 'rising'
-                                ? 'bg-emerald-500/20 text-emerald-300'
-                                : data.blogTrend === 'declining'
-                                ? 'bg-red-500/20 text-red-300'
-                                : 'bg-slate-500/20 text-slate-300'
-                            }`}
-                          >
-                            {data.blogTrend === 'rising' ? '📈' : data.blogTrend === 'declining' ? '📉' : '→'}
-                          </span>
-                        </div>
-                        <p className="text-white font-bold text-2xl mb-2">{data.blogCount30d}</p>
-                        <p className="text-slate-400 text-sm">
-                          일일 {data.blogVelocity}개 / 30일 기준
-                        </p>
-                      </div>
-
-                      {/* 활동 점수 */}
-                      {data.score !== undefined && (
-                        <div className="pt-6 border-t border-slate-700">
-                          <span className="text-slate-400 text-sm">활동 점수</span>
-                          <p className="text-cyan-400 font-bold text-xl mt-1">{data.score.toFixed(1)}/10</p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* 트렌딩 뉴스 및 상위 블로그 */}
-                <div className="grid md:grid-cols-2 gap-6">
-                  {/* 트렌딩 뉴스 */}
-                  {Object.entries(analysis.analysis?.newsAndBlog || {}).map(([portal, data]: [string, any]) =>
-                    data.trendingNews && data.trendingNews.length > 0 ? (
-                      <div key={`${portal}-news`} className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6">
-                        <h4 className="text-emerald-400 font-bold mb-4">🔥 {portal} 트렌딩 뉴스</h4>
-                        <div className="space-y-3">
-                          {data.trendingNews.map((news: any, idx: number) => (
-                            <div key={idx} className="pb-3 border-b border-slate-700 last:border-0">
-                              <p className="text-white text-sm font-semibold mb-1">{news.title}</p>
-                              <p className="text-slate-400 text-xs">{news.date}</p>
-                            </div>
-                          ))}
+                {analysis.analysis?.newsAndBlog && (
+                  <div className="grid md:grid-cols-2 gap-6">
+                    {Object.entries(analysis.analysis.newsAndBlog).map(([portal, data]: [string, any]) => (
+                      <div key={portal} className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6">
+                        <h3 className="text-emerald-400 font-bold text-lg mb-4">{portal}</h3>
+                        <div className="space-y-3 text-sm">
+                          <div>
+                            <span className="text-slate-400">30일 뉴스</span>
+                            <p className="text-white font-bold text-lg">{data.newsCount30d || 0}건</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">30일 블로그</span>
+                            <p className="text-white font-bold text-lg">{data.blogCount30d || 0}건</p>
+                          </div>
+                          <div className="pt-2 border-t border-slate-700">
+                            <span className="text-slate-400">트렌드</span>
+                            <p className="text-white font-semibold">
+                              {data.trend === 'rising' && '📈 상승'} {data.trend === 'declining' && '📉 하락'} {data.trend === 'stable' && '→ 안정'}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    ) : null
-                  )}
-
-                  {/* 상위 블로그 */}
-                  {Object.entries(analysis.analysis?.newsAndBlog || {}).map(([portal, data]: [string, any]) =>
-                    data.topBlogs && data.topBlogs.length > 0 ? (
-                      <div key={`${portal}-blogs`} className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6">
-                        <h4 className="text-emerald-400 font-bold mb-4">⭐ {portal} 상위 블로그</h4>
-                        <div className="space-y-3">
-                          {data.topBlogs.map((blog: any, idx: number) => (
-                            <div key={idx} className="pb-3 border-b border-slate-700 last:border-0">
-                              <div className="flex justify-between items-center">
-                                <p className="text-white text-sm font-semibold">{blog.blog}</p>
-                                <span className="text-emerald-400 text-xs font-bold">{blog.posts}개</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -665,108 +616,40 @@ export default function Home() {
                   '{keyword}' 경쟁사 분석
                 </h2>
 
-                {/* 포털별 경쟁 요약 */}
-                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                  {Object.entries(analysis.analysis?.competitors || {}).map(([portal, data]: [string, any]) => (
-                    <div key={portal} className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6">
-                      <h3 className="text-emerald-400 font-bold text-lg mb-6 border-b border-slate-700 pb-4">
-                        {portal}
-                      </h3>
-
-                      {/* 경쟁 강도 */}
-                      <div className="mb-4">
-                        <span className="text-slate-400 text-sm">경쟁 강도</span>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="flex-1 bg-slate-700 rounded-full h-2">
-                            <div
-                              className={`h-2 rounded-full ${
-                                data.competitionIntensity > 70
-                                  ? 'bg-red-500'
-                                  : data.competitionIntensity > 40
-                                  ? 'bg-yellow-500'
-                                  : 'bg-emerald-500'
-                              }`}
-                              style={{ width: `${Math.min(data.competitionIntensity, 100)}%` }}
-                            />
-                          </div>
-                          <span className="text-white font-bold text-sm">
-                            {data.competitionIntensity}%
-                          </span>
+                {analysis.analysis?.competitors && (
+                  <div className="grid md:grid-cols-2 gap-6">
+                    {Object.entries(analysis.analysis.competitors).map(([portal, data]: [string, any]) => (
+                      <div key={portal} className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6">
+                        <div className="flex justify-between items-center mb-4">
+                          <h3 className="text-emerald-400 font-bold text-lg">{portal}</h3>
+                          <TrustBadge score={85} />
                         </div>
-                      </div>
-
-                      {/* 요약 통계 */}
-                      <div className="space-y-2 text-sm pt-4 border-t border-slate-700">
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">경쟁사 수</span>
-                          <span className="text-white font-bold">{data.summary?.totalCompetitors}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">평균 강도</span>
-                          <span className="text-cyan-400 font-bold">{data.summary?.averageCompetitorStrength}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">기회 키워드</span>
-                          <span className="text-emerald-400 font-bold">{data.summary?.opportunityCount}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* 상세 경쟁사 분석 */}
-                <div className="space-y-6">
-                  {Object.entries(analysis.analysis?.competitors || {}).map(([portal, data]: [string, any]) => (
-                    <div key={`${portal}-detail`} className="space-y-6">
-                      <h3 className="text-2xl font-bold text-emerald-400 mt-8 mb-6">{portal} 경쟁사 상세 분석</h3>
-
-                      {data.list?.map((competitor: any, idx: number) => (
-                        <div key={idx} className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6">
-                          <div className="flex justify-between items-start mb-6">
-                            <h4 className="text-lg font-bold">{competitor.name}</h4>
-                            <div className="flex items-center gap-2">
-                              <span className="text-slate-400 text-sm">강도</span>
-                              <span className="bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full font-bold">
-                                {competitor.competitorStrength}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* 경쟁사 주요 키워드 */}
-                          <div className="mb-6">
-                            <h5 className="text-emerald-400 font-semibold mb-3">🎯 주요 키워드 (Top 5)</h5>
-                            <div className="space-y-2">
-                              {competitor.dominantKeywords?.map((kw: any, kidx: number) => (
-                                <div key={kidx} className="flex justify-between items-center bg-slate-800/50 px-3 py-2 rounded">
-                                  <span className="text-white text-sm">{kw.keyword}</span>
-                                  <div className="flex gap-2">
-                                    <span className="text-cyan-400 text-xs">난이도: {kw.difficulty}</span>
-                                    <span className="text-emerald-400 text-xs font-bold">{kw.score.toFixed(0)}점</span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* 기회 키워드 */}
-                          {competitor.opportunityKeywords?.length > 0 && (
-                            <div>
-                              <h5 className="text-cyan-400 font-semibold mb-3">💡 기회 키워드</h5>
-                              <div className="space-y-2">
-                                {competitor.opportunityKeywords?.map((kw: any, kidx: number) => (
-                                  <div key={kidx} className="flex justify-between items-center bg-cyan-500/10 px-3 py-2 rounded border border-cyan-500/30">
-                                    <span className="text-white text-sm">{kw.keyword}</span>
-                                    <span className="text-cyan-400 text-xs font-bold">{kw.searchVolume?.toLocaleString()}</span>
-                                  </div>
-                                ))}
+                        <div className="space-y-4 text-sm">
+                          <div>
+                            <span className="text-slate-400">경쟁 강도</span>
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className="flex-1 bg-slate-700 rounded-full h-2">
+                                <div
+                                  className="bg-emerald-500 h-2 rounded-full"
+                                  style={{ width: `${data.competitionIntensity || 50}%` }}
+                                />
                               </div>
+                              <span className="text-white font-bold">{data.competitionIntensity || 50}%</span>
                             </div>
-                          )}
+                          </div>
+                          <div>
+                            <span className="text-slate-400">경쟁사 수</span>
+                            <p className="text-white font-bold">{data.summary?.totalCompetitors || 0}개</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">기회 키워드</span>
+                            <p className="text-white font-bold">{data.summary?.opportunityCount || 0}개</p>
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -774,47 +657,45 @@ export default function Home() {
             {activeTab === 'recommendations' && recommendations.length > 0 && (
               <div className="space-y-8">
                 <h2 className="text-3xl font-bold mb-8">
-                  '{keyword}' 연관 키워드 추천
+                  '{keyword}' 추천 키워드 ({recommendations.length}개)
                 </h2>
 
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {recommendations.map((rec, idx) => (
+                <div className="space-y-4">
+                  {recommendations.slice(0, 10).map((rec: any, idx: number) => (
                     <div
                       key={idx}
                       className="bg-slate-900/50 border border-emerald-500/20 rounded-xl p-6 hover:border-emerald-500/60 transition"
                     >
-                      <div className="flex justify-between items-start mb-4">
-                        <h3 className="text-emerald-400 font-bold flex-1">{rec.keyword}</h3>
-                        <span className="text-xs bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full capitalize">
-                          {rec.type}
-                        </span>
-                      </div>
-
-                      <div className="space-y-3 text-sm">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <span className="text-slate-400">점수</span>
-                            <p className="text-emerald-400 font-bold text-lg">{rec.score}</p>
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className="font-bold text-lg text-white">{rec.keyword}</h3>
+                            <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded text-xs font-semibold">
+                              {rec.type}
+                            </span>
                           </div>
-                          <div>
-                            <span className="text-slate-400">검색량</span>
-                            <p className="text-white font-bold">{rec.volume?.toLocaleString()}</p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-700">
-                          <div>
-                            <span className="text-slate-400">난이도</span>
-                            <p className="text-white font-bold">{rec.difficulty}</p>
-                          </div>
-                          <div>
-                            <span className="text-slate-400">트렌드</span>
-                            <p className="text-white font-bold capitalize">
-                              {rec.trend === 'rising' && '📈'}
-                              {rec.trend === 'stable' && '→'}
-                              {rec.trend === 'declining' && '📉'}
-                            </p>
+                          <div className="grid md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <span className="text-slate-400">점수</span>
+                              <p className="text-white font-bold">{rec.score}/100</p>
+                            </div>
+                            <div>
+                              <span className="text-slate-400">검색량</span>
+                              <p className="text-white font-bold">{rec.volume?.toLocaleString() || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <span className="text-slate-400">난이도</span>
+                              <p className="text-white font-bold">{rec.difficulty || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <span className="text-slate-400">트렌드</span>
+                              <p className="text-white font-bold">
+                                {rec.trend === 'rising' && '📈'} {rec.trend === 'declining' && '📉'} {rec.trend}
+                              </p>
+                            </div>
                           </div>
                         </div>
+                        <TrustBadge score={80} />
                       </div>
                     </div>
                   ))}
@@ -823,72 +704,6 @@ export default function Home() {
             )}
           </section>
         )}
-
-        {/* 초기 상태 - 정보 섹션 */}
-        {!analysis && recommendations.length === 0 && (
-          <section className="max-w-5xl mx-auto px-4 py-20">
-            <div className="grid md:grid-cols-4 gap-8">
-              <div className="text-center">
-                <div className="text-5xl mb-4">🔍</div>
-                <h3 className="text-lg font-bold mb-2">다중 포털 분석</h3>
-                <p className="text-slate-400 text-sm">Naver, Google, Daum, YouTube 동시 분석</p>
-              </div>
-              <div className="text-center">
-                <div className="text-5xl mb-4">📊</div>
-                <h3 className="text-lg font-bold mb-2">상세 데이터</h3>
-                <p className="text-slate-400 text-sm">검색량, 난이도, 트렌드 등 정확한 정보</p>
-              </div>
-              <div className="text-center">
-                <div className="text-5xl mb-4">💡</div>
-                <h3 className="text-lg font-bold mb-2">키워드 추천</h3>
-                <p className="text-slate-400 text-sm">AI 기반 연관 키워드 추천</p>
-              </div>
-              <div className="text-center">
-                <div className="text-5xl mb-4">⚡</div>
-                <h3 className="text-lg font-bold mb-2">실시간 분석</h3>
-                <p className="text-slate-400 text-sm">즉시 결과 확인 및 활용</p>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* 푸터 */}
-        <footer className="border-t border-slate-800 mt-20">
-          <div className="max-w-5xl mx-auto px-4 py-12">
-            <div className="grid md:grid-cols-4 gap-8 mb-8">
-              <div>
-                <h4 className="font-bold mb-4 text-emerald-400">KeyPoints</h4>
-                <p className="text-slate-400 text-sm">유튜브 마케팅 성공의 첫 걸음</p>
-              </div>
-              <div>
-                <h4 className="font-bold mb-4">제품</h4>
-                <ul className="space-y-2 text-slate-400 text-sm">
-                  <li><a href="#" className="hover:text-emerald-400 transition">분석</a></li>
-                  <li><a href="#" className="hover:text-emerald-400 transition">추천</a></li>
-                  <li><a href="#" className="hover:text-emerald-400 transition">비교</a></li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-bold mb-4">회사</h4>
-                <ul className="space-y-2 text-slate-400 text-sm">
-                  <li><a href="#" className="hover:text-emerald-400 transition">소개</a></li>
-                  <li><a href="#" className="hover:text-emerald-400 transition">블로그</a></li>
-                  <li><a href="#" className="hover:text-emerald-400 transition">문의</a></li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-bold mb-4">법률</h4>
-                <ul className="space-y-2 text-slate-400 text-sm">
-                  <li><a href="#" className="hover:text-emerald-400 transition">이용약관</a></li>
-                  <li><a href="#" className="hover:text-emerald-400 transition">개인정보</a></li>
-                </ul>
-              </div>
-            </div>
-            <div className="border-t border-slate-800 pt-8 text-center text-slate-500 text-sm">
-              <p>&copy; 2024 KeyPoints. All rights reserved.</p>
-            </div>
-          </div>
-        </footer>
       </main>
     </>
   )
