@@ -1,16 +1,47 @@
 {
-  "buildCommand": "npm run build",
-  "installCommand": "npm install",
-  "framework": "nextjs",
+  "name": "keypoint-pro",
+  "version": 2,
+  "public": true,
+  "buildCommand": "next build",
   "outputDirectory": ".next",
+  "framework": "nextjs",
   "env": {
-    "NOTION_API_TOKEN": "@notion_api_token",
-    "NOTION_DB_KEYWORD_ANALYSIS": "@notion_db_keyword_analysis",
-    "NOTION_DB_TREND_DATA": "@notion_db_trend_data",
-    "NOTION_DB_RECOMMENDATIONS": "@notion_db_recommendations",
-    "NOTION_DB_COMPETITOR": "@notion_db_competitor",
-    "NOTION_DB_INTENT": "@notion_db_intent",
-    "NOTION_DB_PREDICTION": "@notion_db_prediction",
-    "NEXT_PUBLIC_API_URL": "@api_url"
-  }
+    "NEXTAUTH_SECRET": {
+      "description": "NextAuth secret key",
+      "required": true
+    },
+    "NEXTAUTH_URL": {
+      "description": "NextAuth URL (e.g., https://yourdomain.com)",
+      "required": true
+    },
+    "GOOGLE_CLIENT_ID": {
+      "description": "Google OAuth Client ID",
+      "required": false
+    },
+    "GOOGLE_CLIENT_SECRET": {
+      "description": "Google OAuth Client Secret",
+      "required": false
+    },
+    "GITHUB_ID": {
+      "description": "GitHub OAuth App ID",
+      "required": false
+    },
+    "GITHUB_SECRET": {
+      "description": "GitHub OAuth App Secret",
+      "required": false
+    },
+    "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY": {
+      "description": "Stripe Publishable Key",
+      "required": false
+    },
+    "STRIPE_SECRET_KEY": {
+      "description": "Stripe Secret Key",
+      "required": false
+    },
+    "STRIPE_WEBHOOK_SECRET": {
+      "description": "Stripe Webhook Secret",
+      "required": false
+    }
+  },
+  "regions": ["iad1"]
 }
